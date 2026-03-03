@@ -39,10 +39,10 @@ export async function POST(request: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     let fullPrompt = `${promptContent}\n\nAnalise os arquivos do pedido médico anexos e extraia os nomes dos exames.`;
-    
+
     if (procedures.length > 0) {
       fullPrompt += `\n\nAlém disso, tente encontrar o correspondente mais próximo para cada exame identificado na seguinte lista de procedimentos disponíveis (retorne exatamente o nome que está na lista):\n\n${procedures.join("\n")}\n\nNo JSON de retorno, use obrigatoriamente esta estrutura:\n{\n  "exams": [\n    { "name": "nome no pedido", "matched": "nome exato na lista ou null" },\n    ...\n  ]\n}`;
     }
@@ -56,7 +56,9 @@ export async function POST(request: Request) {
       promptParts.push({
         inlineData: {
           data: base64Data,
-          mimeType: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+          mimeType:
+            file.type ||
+            (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
         },
       });
     }
