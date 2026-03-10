@@ -49,7 +49,9 @@ export default function GoogleCsvPage() {
   const handleAnalyze = async () => {
     const files = fileInputRef.current?.files;
     if (!files || files.length === 0) {
-      alert("Por favor, selecione pelo menos uma imagem ou PDF do pedido médico.");
+      alert(
+        "Por favor, selecione pelo menos uma imagem ou PDF do pedido médico.",
+      );
       return;
     }
 
@@ -69,13 +71,15 @@ export default function GoogleCsvPage() {
       // Define mnemonic index as the one before description, as requested
       const mnemonicIndex = descIndex > 0 ? descIndex - 1 : -1;
 
-      const procedureNames = data.slice(4)
-        .map(row => {
-          const mnemonic = mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
+      const procedureNames = data
+        .slice(4)
+        .map((row) => {
+          const mnemonic =
+            mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
           const description = (row[descIndex] || "").trim();
           return mnemonic ? `${mnemonic} - ${description}` : description;
         })
-        .filter(name => name && name.length > 0);
+        .filter((name) => name && name.length > 0);
 
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
@@ -124,40 +128,66 @@ export default function GoogleCsvPage() {
 
         if (descIndex !== -1) {
           parsedResponse.exams.forEach((examObj: any) => {
-            const examName = typeof examObj === 'string' ? examObj : examObj.name;
-            const matchedName = typeof examObj === 'object' ? examObj.matched : null;
-            
+            const examName =
+              typeof examObj === "string" ? examObj : examObj.name;
+            const matchedName =
+              typeof examObj === "object" ? examObj.matched : null;
+
             // Find row index in raw data using the AI-matched name or fallback to string matching
             let bestMatchIndex = -1;
 
             if (matchedName) {
-              const normMatch = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+              const normMatch = (s: string) =>
+                s
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .toLowerCase()
+                  .trim();
               const normalizedMatchedName = normMatch(matchedName);
-              
-              bestMatchIndex = data.slice(4).findIndex(row => {
-                const mnemonic = mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
+
+              bestMatchIndex = data.slice(4).findIndex((row) => {
+                const mnemonic =
+                  mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
                 const description = (row[descIndex] || "").trim();
-                const combined = mnemonic ? `${mnemonic} - ${description}` : description;
+                const combined = mnemonic
+                  ? `${mnemonic} - ${description}`
+                  : description;
                 return normMatch(combined) === normalizedMatchedName;
               });
             }
 
             // Fallback to basic word inclusion if AI didn't provide a direct match or match not found
             if (bestMatchIndex === -1) {
-                const norm = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-                const normExam = norm(examName);
-                
-                bestMatchIndex = data.slice(4).findIndex(row => {
-                    const rowMnemonic = mnemonicIndex !== -1 ? norm(row[mnemonicIndex] || "") : "";
-                    const rowDesc = norm(row[descIndex] || "");
-                    
-                    // Check for exact mnemonic match or mnemonic as a distinct word in the exam name
-                    if (rowMnemonic && (rowMnemonic === normExam || normExam.split(/\s+/).includes(rowMnemonic))) return true;
-                    
-                    // Or check if all significant words of the exam are included in the description
-                    const examWords = normExam.split(/\s+/).filter(w => w.length > 2);
-                    return examWords.length > 0 && examWords.every(w => rowDesc.includes(w));
-                });
+              const norm = (str: string) =>
+                str
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .toLowerCase()
+                  .trim();
+              const normExam = norm(examName);
+
+              bestMatchIndex = data.slice(4).findIndex((row) => {
+                const rowMnemonic =
+                  mnemonicIndex !== -1 ? norm(row[mnemonicIndex] || "") : "";
+                const rowDesc = norm(row[descIndex] || "");
+
+                // Check for exact mnemonic match or mnemonic as a distinct word in the exam name
+                if (
+                  rowMnemonic &&
+                  (rowMnemonic === normExam ||
+                    normExam.split(/\s+/).includes(rowMnemonic))
+                )
+                  return true;
+
+                // Or check if all significant words of the exam are included in the description
+                const examWords = normExam
+                  .split(/\s+/)
+                  .filter((w) => w.length > 2);
+                return (
+                  examWords.length > 0 &&
+                  examWords.every((w) => rowDesc.includes(w))
+                );
+              });
             }
 
             if (bestMatchIndex !== -1) {
@@ -505,7 +535,7 @@ export default function GoogleCsvPage() {
 
     doc.setFontSize(10);
     doc.text(
-      "Esse documento é apenas uma estimativa de valores, pode haver variações com o tempo.",
+      "Este orçamento tem validade de 30 dias a partir da data de emissão, podendo sofrer alterações após esse período.",
       pageWidth / 2,
       finalY + 15,
       { align: "center" },
