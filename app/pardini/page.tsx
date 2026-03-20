@@ -535,7 +535,7 @@ export default function GoogleCsvPage() {
 
     doc.setFontSize(10);
     doc.text(
-      "Este orçamento tem validade de 30 dias a partir da data de emissão, podendo sofrer alterações após esse período.",
+      `Este orçamento tem validade de 30 dias a partir da data de emissão (${new Date().toLocaleDateString("pt-BR")}), podendo sofrer alterações após esse período.`,
       pageWidth / 2,
       finalY + 15,
       { align: "center" },
