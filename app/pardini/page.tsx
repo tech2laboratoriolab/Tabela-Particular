@@ -569,14 +569,6 @@ export default function GoogleCsvPage() {
             {selectedRows.length > 0 && (
               <>
                 <button
-                  onClick={deleteSelectedRows}
-                  disabled={saving}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <span>🗑️</span>
-                  Excluir ({selectedRows.length})
-                </button>
-                <button
                   onClick={generatePdf}
                   disabled={saving}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
