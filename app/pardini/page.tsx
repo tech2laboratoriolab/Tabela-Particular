@@ -275,6 +275,13 @@ export default function GoogleCsvPage() {
 
   const headerRow = data[3] || [];
 
+  const hiddenColIndices = new Set(
+    headerRow
+      .slice(2)
+      .map((h, i) => (h && h.toLowerCase().includes("custo exame") ? i : -1))
+      .filter((i) => i !== -1),
+  );
+
   const normalize = (text: string) =>
     text
       .normalize("NFD")
@@ -632,14 +639,17 @@ export default function GoogleCsvPage() {
                   <th className="px-4 py-3 w-10 bg-slate-50 border-r border-slate-200">
                     <span className="sr-only">Selecionar</span>
                   </th>
-                  {headerRow.slice(2).map((header, i) => (
-                    <th
-                      key={i}
-                      className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-r border-slate-200 last:border-0 bg-slate-50"
-                    >
-                      {header || `Coluna ${i + 3}`}
-                    </th>
-                  ))}
+                  {headerRow.slice(2).map((header, i) => {
+                    if (hiddenColIndices.has(i)) return null;
+                    return (
+                      <th
+                        key={i}
+                        className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-r border-slate-200 last:border-0 bg-slate-50"
+                      >
+                        {header || `Coluna ${i + 3}`}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -658,19 +668,22 @@ export default function GoogleCsvPage() {
                           className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                         />
                       </td>
-                      {row.slice(2).map((cell, colIndex) => (
-                        <td
-                          key={colIndex}
-                          className="px-2 py-1 border-r border-slate-100 last:border-0"
-                        >
-                          <EditableCell
-                            initialValue={cell}
-                            onSave={(val) =>
-                              handleCellChange(actualIndex, colIndex, val)
-                            }
-                          />
-                        </td>
-                      ))}
+                      {row.slice(2).map((cell, colIndex) => {
+                        if (hiddenColIndices.has(colIndex)) return null;
+                        return (
+                          <td
+                            key={colIndex}
+                            className="px-2 py-1 border-r border-slate-100 last:border-0"
+                          >
+                            <EditableCell
+                              initialValue={cell}
+                              onSave={(val) =>
+                                handleCellChange(actualIndex, colIndex, val)
+                              }
+                            />
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
