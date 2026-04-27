@@ -146,7 +146,9 @@ const AccordionItem = ({
                 <span className="text-[10px] font-bold text-slate-400 uppercase">
                   Preço Base
                 </span>
-                <span className={`font-semibold ${hasDiscount ? "text-slate-400 line-through text-xs" : "text-green-600"}`}>
+                <span
+                  className={`font-semibold ${hasDiscount ? "text-slate-400 line-through text-xs" : "text-green-600"}`}
+                >
                   {item.preco.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
@@ -191,7 +193,8 @@ export function SelectionFilter() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState<Procedimento[]>([]);
-  const [manualPixDiscountPercent, setManualPixDiscountPercent] = useState<number>(0);
+  const [manualPixDiscountPercent, setManualPixDiscountPercent] =
+    useState<number>(0);
 
   useEffect(() => {
     const fetchProcedimentos = async () => {
@@ -202,35 +205,61 @@ export function SelectionFilter() {
         if (data.error) throw new Error(data.error);
 
         const headerRow = data[3] || [];
-        
-        let descIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("descrição"));
-        if (descIndex === -1) descIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("descricao"));
-        
-        let priceIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("preço de venda"));
-        if (priceIndex === -1) priceIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("preco de venda"));
-        if (priceIndex === -1) priceIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("preço"));
-        
-        let tussIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("código tuss"));
-        if (tussIndex === -1) tussIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("codigo tuss"));
-        if (tussIndex === -1) tussIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("tuss"));
 
-        let prazoIndex = headerRow.findIndex((h: string) => h && h.toLowerCase().includes("prazo"));
+        let descIndex = headerRow.findIndex(
+          (h: string) => h && h.toLowerCase().includes("descrição"),
+        );
+        if (descIndex === -1)
+          descIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("descricao"),
+          );
 
-        const formattedData: Procedimento[] = data.slice(4).map((row: string[]) => {
-          const priceStr = row[priceIndex] || "0";
-          const priceClean = priceStr
-            .replace(/[^\d,.-]/g, "")
-            .replace(/\./g, "")
-            .replace(",", ".");
-          const priceValue = parseFloat(priceClean) || 0;
+        let priceIndex = headerRow.findIndex(
+          (h: string) => h && h.toLowerCase().includes("preço de venda"),
+        );
+        if (priceIndex === -1)
+          priceIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("preco de venda"),
+          );
+        if (priceIndex === -1)
+          priceIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("preço"),
+          );
 
-          return {
-            descricao: row[descIndex] || "Sem descrição",
-            preco: priceValue,
-            codigoTuss: tussIndex !== -1 ? row[tussIndex] : "",
-            prazo: prazoIndex !== -1 ? row[prazoIndex] : "",
-          };
-        }).filter((p: Procedimento) => p.descricao !== "Sem descrição");
+        let tussIndex = headerRow.findIndex(
+          (h: string) => h && h.toLowerCase().includes("código tuss"),
+        );
+        if (tussIndex === -1)
+          tussIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("codigo tuss"),
+          );
+        if (tussIndex === -1)
+          tussIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("tuss"),
+          );
+
+        let prazoIndex = headerRow.findIndex(
+          (h: string) => h && h.toLowerCase().includes("prazo"),
+        );
+
+        const formattedData: Procedimento[] = data
+          .slice(4)
+          .map((row: string[]) => {
+            const priceStr = row[priceIndex] || "0";
+            const priceClean = priceStr
+              .replace(/[^\d,.-]/g, "")
+              .replace(/\./g, "")
+              .replace(",", ".");
+            const priceValue = parseFloat(priceClean) || 0;
+
+            return {
+              descricao: row[descIndex] || "Sem descrição",
+              preco: priceValue,
+              codigoTuss: tussIndex !== -1 ? row[tussIndex] : "",
+              prazo: prazoIndex !== -1 ? row[prazoIndex] : "",
+            };
+          })
+          .filter((p: Procedimento) => p.descricao !== "Sem descrição");
 
         setProcedimentos(formattedData);
       } catch (error) {
@@ -247,9 +276,11 @@ export function SelectionFilter() {
     return acc + (item.preco || 0) * (item.quantidade || 1);
   }, 0);
 
-  const discountedTotalValue = roundCeil(selectedItems.reduce((acc, item) => {
-    return acc + getDiscountedPrice(item.preco) * (item.quantidade || 1);
-  }, 0));
+  const discountedTotalValue = roundCeil(
+    selectedItems.reduce((acc, item) => {
+      return acc + getDiscountedPrice(item.preco) * (item.quantidade || 1);
+    }, 0),
+  );
 
   const updateQuantity = (item: Procedimento, newQty: number) => {
     setSelectedItems((prev) =>
@@ -267,9 +298,7 @@ export function SelectionFilter() {
     );
     if (isAlreadySelected) {
       setSelectedItems(
-        selectedItems.filter(
-          (i) => i.descricao !== item.descricao,
-        ),
+        selectedItems.filter((i) => i.descricao !== item.descricao),
       );
     } else {
       setSelectedItems([...selectedItems, { ...item, quantidade: 1 }]);
@@ -278,12 +307,22 @@ export function SelectionFilter() {
   };
 
   // Preços calculados (PIX e Cartão mantidos sobre o valor já com desconto per-item)
-  const manualDiscountAmount = roundCeil(discountedTotalValue * (manualPixDiscountPercent / 100));
+  const manualDiscountAmount = roundCeil(
+    discountedTotalValue * (manualPixDiscountPercent / 100),
+  );
   const finalPrecoPix = roundCeil(discountedTotalValue - manualDiscountAmount);
   const finalPrecoCartao = discountedTotalValue;
 
-  const precoPixNaoAtendido = roundCeil(discountedTotalValue > 500 ? 0.7 * discountedTotalValue : 0.8 * discountedTotalValue);
-  const precoCartao2XNaoAtendido = roundCeil(discountedTotalValue > 500 ? 0.75 * discountedTotalValue : 0.85 * discountedTotalValue);
+  const precoPixNaoAtendido = roundCeil(
+    discountedTotalValue > 500
+      ? 0.7 * discountedTotalValue
+      : 0.8 * discountedTotalValue,
+  );
+  const precoCartao2XNaoAtendido = roundCeil(
+    discountedTotalValue > 500
+      ? 0.75 * discountedTotalValue
+      : 0.85 * discountedTotalValue,
+  );
 
   const generatePdf = async (isAtendido: boolean) => {
     const doc = new jsPDF();
@@ -317,12 +356,7 @@ export function SelectionFilter() {
     doc.setFontSize(16);
     doc.text("Orçamento Pardini", 14, 40);
 
-    const tableColumn = [
-      "Descrição",
-      "Qtd",
-      "Preço Un. (R$)",
-      "Total (R$)",
-    ];
+    const tableColumn = ["Descrição", "Qtd", "Preço Un. (R$)", "Total (R$)"];
     const tableRows: (string | number)[][] = [];
 
     selectedItems.forEach((item) => {
@@ -339,7 +373,9 @@ export function SelectionFilter() {
     });
 
     const finalPix = isAtendido ? finalPrecoPix : precoPixNaoAtendido;
-    const finalCartao = isAtendido ? finalPrecoCartao : precoCartao2XNaoAtendido;
+    const finalCartao = isAtendido
+      ? finalPrecoCartao
+      : precoCartao2XNaoAtendido;
 
     const footerRows = [
       [
@@ -353,7 +389,7 @@ export function SelectionFilter() {
         "",
         "",
         finalCartao.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
-      ]
+      ],
     ];
 
     autoTable(doc, {
@@ -364,7 +400,9 @@ export function SelectionFilter() {
       footStyles: { fontStyle: "bold" },
     });
 
-    doc.save(`orcamento-pardini-${isAtendido ? "atendido" : "nao-atendido"}-${new Date().getTime()}.pdf`);
+    doc.save(
+      `orcamento-pardini-${isAtendido ? "atendido" : "nao-atendido"}-${new Date().getTime()}.pdf`,
+    );
   };
 
   const normalize = (text: string | null | undefined) =>
@@ -373,9 +411,10 @@ export function SelectionFilter() {
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
 
-  const filteredItems = procedimentos.filter((item) =>
-    normalize(item.descricao).includes(normalize(query)) ||
-    normalize(item.codigoTuss).includes(normalize(query))
+  const filteredItems = procedimentos.filter(
+    (item) =>
+      normalize(item.descricao).includes(normalize(query)) ||
+      normalize(item.codigoTuss).includes(normalize(query)),
   );
 
   if (loading) {
@@ -383,7 +422,9 @@ export function SelectionFilter() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3 animate-fade-in">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">Carregando dados Pardini...</p>
+          <p className="text-slate-500 font-medium">
+            Carregando dados Pardini...
+          </p>
         </div>
       </div>
     );
@@ -396,7 +437,9 @@ export function SelectionFilter() {
           <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">🔍</span>
+                <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                  🔍
+                </span>
                 Buscar Exames Pardini
               </div>
               <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
@@ -411,13 +454,17 @@ export function SelectionFilter() {
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 bg-white/70 backdrop-blur-sm text-slate-800 placeholder:text-slate-400 pl-11"
               />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⚡</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                ⚡
+              </span>
             </div>
 
             <div className="mt-4 border border-slate-100 rounded-xl overflow-hidden max-h-125 overflow-y-auto custom-scrollbar shadow-sm bg-white">
               <div className="divide-y divide-slate-100">
                 {filteredItems.map((item, index) => {
-                  const selectedItem = selectedItems.find((i) => i.descricao === item.descricao);
+                  const selectedItem = selectedItems.find(
+                    (i) => i.descricao === item.descricao,
+                  );
                   return (
                     <AccordionItem
                       key={`filtered-${index}`}
@@ -442,26 +489,46 @@ export function SelectionFilter() {
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-slate-600">Total (c/ descontos)</span>
-                  <span className="text-[10px] text-slate-400">Total base: {baseTotalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                  <span className="text-sm font-medium text-slate-600">
+                    Total (c/ descontos)
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Total base:{" "}
+                    {baseTotalValue.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
                 </div>
                 <span className="text-lg font-bold text-slate-800">
-                  {discountedTotalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  {discountedTotalValue.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-4 rounded-xl bg-green-50 border border-green-100 flex flex-col">
-                  <span className="text-xs font-semibold text-green-700 uppercase mb-1">PIX Final</span>
-                  <span className="text-xl font-bold text-green-700">
-                    {finalPrecoPix.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  <span className="text-xs font-semibold text-green-700 uppercase mb-1">
+                    PIX Final
                   </span>
-                  
+                  <span className="text-xl font-bold text-green-700">
+                    {finalPrecoPix.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+
                   <div className="mt-2 flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-green-600 uppercase">Desc. Manual (%)</span>
-                    <select 
+                    <span className="text-[10px] font-bold text-green-600 uppercase">
+                      Desc. Manual (%)
+                    </span>
+                    <select
                       value={manualPixDiscountPercent}
-                      onChange={(e) => setManualPixDiscountPercent(Number(e.target.value))}
+                      onChange={(e) =>
+                        setManualPixDiscountPercent(Number(e.target.value))
+                      }
                       className="w-full h-8 px-2 text-sm font-bold bg-white border border-green-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 text-green-700 cursor-pointer"
                     >
                       <option value="0">Sem Desconto</option>
@@ -473,13 +540,20 @@ export function SelectionFilter() {
                   </div>
 
                   <span className="text-[10px] text-green-600 mt-1">
-                    {manualPixDiscountPercent > 0 ? "Desconto manual aplicado" : "Preço à vista"}
+                    {manualPixDiscountPercent > 0
+                      ? "Desconto manual aplicado"
+                      : "Preço à vista"}
                   </span>
                 </div>
                 <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 flex flex-col">
-                  <span className="text-xs font-semibold text-blue-700 uppercase mb-1">Cartão 2x Final</span>
+                  <span className="text-xs font-semibold text-blue-700 uppercase mb-1">
+                    Cartão 2x Final
+                  </span>
                   <span className="text-xl font-bold text-blue-700">
-                    {finalPrecoCartao.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    {finalPrecoCartao.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
                   </span>
                 </div>
               </div>
@@ -506,24 +580,40 @@ export function SelectionFilter() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {selectedItems.map((item, index) => (
-                      <tr key={`selected-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-2 py-3 font-medium text-slate-700 max-w-[150px] truncate">{item.descricao}</td>
+                      <tr
+                        key={`selected-${index}`}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        <td className="px-2 py-3 font-medium text-slate-700 max-w-[150px] truncate">
+                          {item.descricao}
+                        </td>
                         <td className="px-2 py-3">
                           <div className="flex justify-center">
                             <input
                               type="number"
                               min="1"
                               value={item.quantidade || 1}
-                              onChange={(e) => updateQuantity(item, parseInt(e.target.value))}
+                              onChange={(e) =>
+                                updateQuantity(item, parseInt(e.target.value))
+                              }
                               className="w-12 h-7 text-center text-xs font-bold bg-white border border-slate-200 rounded-md"
                             />
                           </div>
                         </td>
                         <td className="px-2 py-3 text-right font-semibold text-slate-700">
-                          {(getDiscountedPrice(item.preco) * (item.quantidade || 1)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          {(
+                            getDiscountedPrice(item.preco) *
+                            (item.quantidade || 1)
+                          ).toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
                         </td>
                         <td className="px-2 py-3 text-right">
-                          <button onClick={() => toggleItem(item)} className="text-slate-300 hover:text-red-500">
+                          <button
+                            onClick={() => toggleItem(item)}
+                            className="text-slate-300 hover:text-red-500"
+                          >
                             ✕
                           </button>
                         </td>
@@ -546,10 +636,12 @@ export default function PardiniOrcamento() {
       <div className="max-w-7xl mx-auto mb-8 text-center animate-fade-in-down">
         <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight">
           <span className="bg-linear-to-r from-purple-900 via-purple-700 to-indigo-800 bg-clip-text text-transparent">
-            Tabela Pardini
+            Tabela Álvaro
           </span>
         </h1>
-        <p className="text-slate-500 text-lg">Selecione os exames Pardini para gerar um orçamento</p>
+        <p className="text-slate-500 text-lg">
+          Selecione os exames Álvaro para gerar um orçamento
+        </p>
       </div>
       <SelectionFilter />
     </main>
