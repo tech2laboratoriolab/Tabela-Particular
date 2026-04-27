@@ -34,7 +34,7 @@ export default function Navbar() {
                     : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
                 }`}
               >
-                Orçamento Pardini
+                Orçamento Álvaro
               </Link>
               <Link
                 href="/pardini"
