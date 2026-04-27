@@ -238,7 +238,7 @@ export function SelectionFilter() {
             (h: string) => h && h.toLowerCase().includes("tuss"),
           );
 
-        let prazoIndex = headerRow.findIndex(
+        const prazoIndex = headerRow.findIndex(
           (h: string) => h && h.toLowerCase().includes("prazo"),
         );
 
@@ -354,7 +354,7 @@ export function SelectionFilter() {
     doc.text("lab@laboratoriolab.com.br", 80, 25);
 
     doc.setFontSize(16);
-    doc.text("Orçamento Pardini", 14, 40);
+    doc.text("Orçamento Álvaro", 14, 40);
 
     const tableColumn = ["Descrição", "Qtd", "Preço Un. (R$)", "Total (R$)"];
     const tableRows: (string | number)[][] = [];
@@ -423,7 +423,7 @@ export function SelectionFilter() {
         <div className="flex flex-col items-center gap-3 animate-fade-in">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
           <p className="text-slate-500 font-medium">
-            Carregando dados Pardini...
+            Carregando dados Álvaro...
           </p>
         </div>
       </div>
@@ -440,7 +440,7 @@ export function SelectionFilter() {
                 <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
                   🔍
                 </span>
-                Buscar Exames Pardini
+                Buscar Exames Álvaro
               </div>
               <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
                 {procedimentos.length} itens
@@ -483,7 +483,7 @@ export function SelectionFilter() {
         <div className="lg:col-span-5 flex flex-col gap-6">
           <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-6 p-2 flex items-center gap-2">
-              Resumo Pardini
+              Resumo Álvaro
             </h2>
 
             <div className="space-y-4">
@@ -563,7 +563,7 @@ export function SelectionFilter() {
                 disabled={selectedItems.length === 0}
                 className="w-full mt-4 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
-                Gerar PDF Pardini
+                Gerar PDF Álvaro
               </button>
             </div>
 
