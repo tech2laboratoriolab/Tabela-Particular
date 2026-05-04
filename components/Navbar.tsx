@@ -15,33 +15,33 @@ export default function Navbar() {
                 Flow LAB
               </span>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-2 sm:items-stretch">
               <Link
                 href="/"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+                className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
                   pathname === "/"
-                    ? "border-blue-500 text-slate-900"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    ? "bg-blue-500 text-white"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
                 Tabela Particular
               </Link>
               <Link
                 href="/pardini-orcamento"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+                className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
                   pathname === "/pardini-orcamento"
-                    ? "border-blue-500 text-slate-900"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    ? "bg-blue-500 text-white"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
                 Orçamento Álvaro
               </Link>
               <Link
                 href="/pardini"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+                className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
                   pathname === "/pardini"
-                    ? "border-blue-500 text-slate-900"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    ? "bg-blue-500 text-white"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
                 Gerenciar Pardini

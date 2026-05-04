@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { supabase } from "../lib/supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -16,154 +16,161 @@ interface Procedimento {
   [key: string]: any;
 }
 
-const AccordionItem = ({
-  item,
-  isSelected,
-  onToggle,
-  onQuantityChange,
-}: {
-  item: Procedimento;
-  isSelected: boolean;
-  onToggle: (item: Procedimento) => void;
-  onQuantityChange?: (item: Procedimento, quantity: number) => void;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
+const AccordionItem = memo(
+  ({
+    item,
+    isSelected,
+    onToggle,
+    onQuantityChange,
+  }: {
+    item: Procedimento;
+    isSelected: boolean;
+    onToggle: (item: Procedimento) => void;
+    onQuantityChange?: (item: Procedimento, quantity: number) => void;
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
 
-  return (
-    <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
-      <div className="flex items-center justify-between p-4 transition-colors hover:bg-slate-100">
-        <div className="flex items-center gap-3">
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(item);
-            }}
-            className="cursor-pointer p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
-          >
+    return (
+      <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
+        <div className="flex items-center justify-between p-4 transition-colors hover:bg-slate-100">
+          <div className="flex items-center gap-3">
             <div
-              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 ${
-                isSelected
-                  ? "bg-blue-500 border-blue-500 text-white shadow-sm scale-110"
-                  : "border-slate-300 bg-white group-hover:border-blue-300"
-              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(item);
+              }}
+              className="cursor-pointer p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
             >
-              {isSelected && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-3.5 h-3.5"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
+              <div
+                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 ${
+                  isSelected
+                    ? "bg-blue-500 border-blue-500 text-white shadow-sm scale-110"
+                    : "border-slate-300 bg-white group-hover:border-blue-300"
+                }`}
+              >
+                {isSelected && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-3.5 h-3.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
             </div>
+
+            {isSelected && onQuantityChange && (
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase px-1">
+                  Tam
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={item.quantidade || 1}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) onQuantityChange(item, val);
+                  }}
+                  className="w-12 h-7 text-center text-sm font-bold bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+              </div>
+            )}
           </div>
 
-          {isSelected && onQuantityChange && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase px-1">
-                Tam
-              </span>
-              <input
-                type="number"
-                min="1"
-                value={item.quantidade || 1}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val)) onQuantityChange(item, val);
-                }}
-                className="w-12 h-7 text-center text-sm font-bold bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
+          <div
+            className="flex-1 flex items-center justify-between cursor-pointer ml-3 select-none"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span
+              className={`font-medium text-sm transition-colors ${isOpen ? "text-blue-700" : "text-slate-700"}`}
+            >
+              {item.titulo || item.descricao}
+            </span>
+            <div
+              className={`transition-transform duration-300 ease-out text-slate-400 p-1 rounded-full hover:bg-slate-100 ${
+                isOpen ? "rotate-180 text-blue-500 bg-blue-50" : ""
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </div>
-          )}
+          </div>
         </div>
 
         <div
-          className="flex-1 flex items-center justify-between cursor-pointer ml-3 select-none"
-          onClick={() => setIsOpen(!isOpen)}
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
         >
-          <span
-            className={`font-medium text-sm transition-colors ${isOpen ? "text-blue-700" : "text-slate-700"}`}
-          >
-            {item.titulo || item.descricao}
-          </span>
-          <div
-            className={`transition-transform duration-300 ease-out text-slate-400 p-1 rounded-full hover:bg-slate-100 ${
-              isOpen ? "rotate-180 text-blue-500 bg-blue-50" : ""
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm text-slate-600 animate-fade-in space-y-3">
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Descrição
-              </span>
-              <p className="mt-1 text-slate-700 leading-relaxed">
-                {item.descricao}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                  Preço
+          <div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm text-slate-600 animate-fade-in space-y-3">
+              <div>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Descrição
                 </span>
-                <span className="font-semibold text-green-600">
-                  {(typeof item.preco === "number"
-                    ? item.preco
-                    : parseFloat(String(item.preco).replace(/,/g, ""))
-                  ).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
+                <p className="mt-1 text-slate-700 leading-relaxed">
+                  {item.descricao}
+                </p>
               </div>
 
-              {item.prazo && (
+              <div className="flex flex-wrap gap-3 pt-2">
                 <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    Prazo
+                    Preço
                   </span>
-                  <span className="font-semibold text-blue-600">
-                    {item.prazo} dias
+                  <span className="font-semibold text-green-600">
+                    {(typeof item.preco === "number"
+                      ? item.preco
+                      : parseFloat(String(item.preco).replace(/,/g, ""))
+                    ).toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
                   </span>
                 </div>
-              )}
+
+                {item.prazo && (
+                  <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                      Prazo
+                    </span>
+                    <span className="font-semibold text-blue-600">
+                      {item.prazo} dias
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+  (prev, next) =>
+    prev.isSelected === next.isSelected &&
+    prev.item === next.item &&
+    prev.onToggle === next.onToggle &&
+    prev.onQuantityChange === next.onQuantityChange,
+);
 
 export function SelectionFilter() {
   const [procedimentos, setProcedimentos] = useState<Procedimento[]>([]);
@@ -197,7 +204,7 @@ export function SelectionFilter() {
     return acc + (price || 0) * (item.quantidade || 1);
   }, 0);
 
-  const updateQuantity = (item: Procedimento, newQty: number) => {
+  const updateQuantity = useCallback((item: Procedimento, newQty: number) => {
     setSelectedItems((prev) =>
       prev.map((i) =>
         (i.titulo || i.descricao) === (item.titulo || item.descricao)
@@ -205,23 +212,22 @@ export function SelectionFilter() {
           : i,
       ),
     );
-  };
+  }, []);
 
-  const toggleItem = (item: Procedimento) => {
-    const isAlreadySelected = selectedItems.some(
-      (i) => (i.titulo || i.descricao) === (item.titulo || item.descricao),
-    );
-    if (isAlreadySelected) {
-      setSelectedItems(
-        selectedItems.filter(
-          (i) => (i.titulo || i.descricao) !== (item.titulo || i.descricao),
-        ),
+  const toggleItem = useCallback((item: Procedimento) => {
+    setSelectedItems((prev) => {
+      const isAlreadySelected = prev.some(
+        (i) => (i.titulo || i.descricao) === (item.titulo || item.descricao),
       );
-    } else {
-      setSelectedItems([...selectedItems, { ...item, quantidade: 1 }]);
-    }
+      if (isAlreadySelected) {
+        return prev.filter(
+          (i) => (i.titulo || i.descricao) !== (item.titulo || item.descricao),
+        );
+      }
+      return [...prev, { ...item, quantidade: 1 }];
+    });
     setQuery("");
-  };
+  }, []);
 
   // Preços calculados
   const precoCartao2X =
@@ -375,9 +381,9 @@ export function SelectionFilter() {
 
   return (
     <>
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in-up">
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex-1 min-h-0 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[1fr] gap-6 animate-fade-in-up">
+        <div className="lg:col-span-7 flex flex-col gap-6 min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -407,7 +413,7 @@ export function SelectionFilter() {
               </span>
             </div>
 
-            <div className="mt-4 border border-slate-100 rounded-xl overflow-hidden max-h-125 overflow-y-auto custom-scrollbar shadow-sm bg-white">
+            <div className="flex-1 min-h-0 mt-4 border border-slate-100 rounded-xl overflow-y-auto shadow-sm bg-white">
               <div className="divide-y divide-slate-100">
                 {filteredItems.map((item, index) => {
                   const selectedItem = selectedItems.find(
@@ -444,19 +450,18 @@ export function SelectionFilter() {
         </div>
 
         {/* Coluna da Direita - Resumo e Orçamento */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-6 p-2 flex items-center gap-2">
+        <div className="lg:col-span-5 flex flex-col gap-6 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
               Resumo do Orçamento
             </h2>
 
-            <div className="space-y-4">
-              {/* Cards de Preço */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center">
-                <span className="text-sm font-medium text-slate-600">
+            <div className="flex-1 flex flex-col justify-between gap-2">
+              <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center">
+                <span className="text-base font-medium text-slate-600">
                   Preço Total
                 </span>
-                <span className="text-lg font-bold text-slate-800">
+                <span className="text-2xl font-bold text-slate-800">
                   {totalValue.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
@@ -464,29 +469,29 @@ export function SelectionFilter() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-4 rounded-xl bg-green-50 border border-green-100 flex flex-col">
-                  <span className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="px-4 py-3 rounded-xl bg-green-50 border border-green-100 flex flex-col">
+                  <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">
                     Pagamento PIX
                   </span>
-                  <span className="text-xl font-bold text-green-700">
+                  <span className="text-2xl font-bold text-green-700">
                     {precoPix.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}
                   </span>
-                  <span className="text-xs text-green-600 mt-1">
+                  <span className="text-xs text-green-600">
                     {selectedItems.length >= 2
                       ? "Desconto aplicado"
                       : "À vista"}
                   </span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 flex flex-col">
-                  <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">
+                <div className="px-4 py-3 rounded-xl bg-blue-50 border border-blue-100 flex flex-col">
+                  <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
                     Cartão 2x
                   </span>
-                  <span className="text-xl font-bold text-blue-700">
+                  <span className="text-2xl font-bold text-blue-700">
                     {precoCartao2X.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
@@ -495,43 +500,41 @@ export function SelectionFilter() {
                 </div>
               </div>
 
-              <div className="my-6 border-t border-dashed border-slate-200"></div>
+              <div className="border-t border-dashed border-slate-200"></div>
 
-              <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
-                <h3 className="text-sm font-bold text-orange-800 mb-3 flex items-center">
-                  <span className="mr-2">⚠️</span> Convênios Não Atendidos
+              <div className="bg-orange-50 rounded-xl px-4 py-3 border border-orange-100">
+                <h3 className="text-sm font-bold text-orange-800 mb-2 flex items-center">
+                  <span className="mr-1">⚠️</span> Convênios Não Atendidos
                 </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-orange-700">Preço PIX:</span>
-                    <span className="font-bold text-orange-800">
-                      {precoPixNaoAtendido.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-orange-700">Cartão 2x:</span>
-                    <span className="font-bold text-orange-800">
-                      {precoCartao2XNaoAtendido.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-orange-700">PIX:</span>
+                  <span className="font-bold text-orange-800">
+                    {precoPixNaoAtendido.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-orange-700">Cartão 2x:</span>
+                  <span className="font-bold text-orange-800">
+                    {precoCartao2XNaoAtendido.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm text-slate-600 pt-2">
+              <div className="flex items-center justify-between text-sm text-slate-600">
                 <span>Quantidade:</span>
-                <span className="font-medium bg-slate-100 px-2 py-1 rounded-full">
+                <span className="font-medium bg-slate-100 px-3 py-1 rounded-full">
                   {selectedItems.length} exames
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm text-slate-600">
                 <span>Prazo estimado:</span>
-                <span className="font-medium bg-slate-100 px-2 py-1 rounded-full">
+                <span className="font-medium bg-slate-100 px-3 py-1 rounded-full">
                   {prazoMaximo} dias úteis
                 </span>
               </div>
@@ -539,15 +542,14 @@ export function SelectionFilter() {
               <button
                 onClick={() => setIsModalOpen(true)}
                 disabled={selectedItems.length === 0}
-                className="w-full mt-4 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0"
+                className="w-full px-4 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0 text-sm"
               >
                 Gerar PDF do Orçamento
               </button>
             </div>
 
-            {/* Itens Selecionados - Tabela */}
             {selectedItems.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-slate-100">
+              <div className="mt-3 pt-3 border-t border-slate-100">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-3">
                   Itens Selecionados
                 </span>
@@ -683,17 +685,7 @@ export function SelectionFilter() {
 
 export default function Home() {
   return (
-    <main className="h-full bg-slate-300 py-6 px-4 sm:px-6 lg:px-8 overflow-y-auto">
-      <div className="max-w-7xl mx-auto mb-8 text-center animate-fade-in-down">
-        <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight">
-          <span className="bg-linear-to-r from-blue-900 via-blue-700 to-indigo-800 bg-clip-text text-transparent">
-            Tabela Particular
-          </span>
-        </h1>
-        <p className="text-slate-500 text-lg">
-          Selecione os procedimentos para gerar um orçamento detalhado
-        </p>
-      </div>
+    <main className="h-full bg-slate-300 py-4 px-4 sm:px-6 lg:px-8 overflow-hidden flex flex-col">
       <SelectionFilter />
     </main>
   );
