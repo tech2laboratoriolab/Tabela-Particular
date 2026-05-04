@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Canvg } from "canvg";
@@ -24,169 +24,176 @@ const getDiscountedPrice = (price: number) => {
   return roundCeil(discounted);
 };
 
-const AccordionItem = ({
-  item,
-  isSelected,
-  onToggle,
-  onQuantityChange,
-}: {
-  item: Procedimento;
-  isSelected: boolean;
-  onToggle: (item: Procedimento) => void;
-  onQuantityChange?: (item: Procedimento, quantity: number) => void;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const discountedPrice = getDiscountedPrice(item.preco);
-  const hasDiscount = discountedPrice < item.preco;
+const AccordionItem = memo(
+  ({
+    item,
+    isSelected,
+    onToggle,
+    onQuantityChange,
+  }: {
+    item: Procedimento;
+    isSelected: boolean;
+    onToggle: (item: Procedimento) => void;
+    onQuantityChange?: (item: Procedimento, quantity: number) => void;
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const discountedPrice = getDiscountedPrice(item.preco);
+    const hasDiscount = discountedPrice < item.preco;
 
-  return (
-    <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
-      <div className="flex items-center justify-between p-4 transition-colors hover:bg-slate-100">
-        <div className="flex items-center gap-3">
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(item);
-            }}
-            className="cursor-pointer p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
-          >
+    return (
+      <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
+        <div className="flex items-center justify-between p-4 transition-colors hover:bg-slate-100">
+          <div className="flex items-center gap-3">
             <div
-              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 ${
-                isSelected
-                  ? "bg-blue-500 border-blue-500 text-white shadow-sm scale-110"
-                  : "border-slate-300 bg-white group-hover:border-blue-300"
-              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(item);
+              }}
+              className="cursor-pointer p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
             >
-              {isSelected && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-3.5 h-3.5"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
+              <div
+                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 ${
+                  isSelected
+                    ? "bg-blue-500 border-blue-500 text-white shadow-sm scale-110"
+                    : "border-slate-300 bg-white group-hover:border-blue-300"
+                }`}
+              >
+                {isSelected && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-3.5 h-3.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
             </div>
+
+            {isSelected && onQuantityChange && (
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase px-1">
+                  Qtd
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={item.quantidade || 1}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) onQuantityChange(item, val);
+                  }}
+                  className="w-12 h-7 text-center text-sm font-bold bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+              </div>
+            )}
           </div>
 
-          {isSelected && onQuantityChange && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase px-1">
-                Qtd
-              </span>
-              <input
-                type="number"
-                min="1"
-                value={item.quantidade || 1}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val)) onQuantityChange(item, val);
-                }}
-                className="w-12 h-7 text-center text-sm font-bold bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
+          <div
+            className="flex-1 flex items-center justify-between cursor-pointer ml-3 select-none"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span
+              className={`font-medium text-sm transition-colors ${isOpen ? "text-blue-700" : "text-slate-700"}`}
+            >
+              {item.descricao}
+            </span>
+            <div
+              className={`transition-transform duration-300 ease-out text-slate-400 p-1 rounded-full hover:bg-slate-100 ${
+                isOpen ? "rotate-180 text-blue-500 bg-blue-50" : ""
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </div>
-          )}
+          </div>
         </div>
 
         <div
-          className="flex-1 flex items-center justify-between cursor-pointer ml-3 select-none"
-          onClick={() => setIsOpen(!isOpen)}
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
         >
-          <span
-            className={`font-medium text-sm transition-colors ${isOpen ? "text-blue-700" : "text-slate-700"}`}
-          >
-            {item.descricao}
-          </span>
-          <div
-            className={`transition-transform duration-300 ease-out text-slate-400 p-1 rounded-full hover:bg-slate-100 ${
-              isOpen ? "rotate-180 text-blue-500 bg-blue-50" : ""
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm text-slate-600 animate-fade-in space-y-3">
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Código TUSS
-              </span>
-              <p className="mt-1 text-slate-700 leading-relaxed">
-                {item.codigoTuss || "N/A"}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                  Preço Base
+          <div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm text-slate-600 animate-fade-in space-y-3">
+              <div>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Código TUSS
                 </span>
-                <span
-                  className={`font-semibold ${hasDiscount ? "text-slate-400 line-through text-xs" : "text-green-600"}`}
-                >
-                  {item.preco.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
+                <p className="mt-1 text-slate-700 leading-relaxed">
+                  {item.codigoTuss || "N/A"}
+                </p>
               </div>
 
-              {hasDiscount && (
-                <div className="flex flex-col bg-green-50 px-3 py-2 rounded-lg border border-green-200 shadow-sm">
-                  <span className="text-[10px] font-bold text-green-600 uppercase">
-                    Com Desconto
+              <div className="flex flex-wrap gap-3 pt-2">
+                <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    Preço Base
                   </span>
-                  <span className="font-bold text-green-700">
-                    {discountedPrice.toLocaleString("pt-BR", {
+                  <span
+                    className={`font-semibold ${hasDiscount ? "text-slate-400 line-through text-xs" : "text-green-600"}`}
+                  >
+                    {item.preco.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}
                   </span>
                 </div>
-              )}
 
-              {item.prazo && (
-                <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    Prazo
-                  </span>
-                  <span className="font-semibold text-blue-600">
-                    {item.prazo}
-                  </span>
-                </div>
-              )}
+                {hasDiscount && (
+                  <div className="flex flex-col bg-green-50 px-3 py-2 rounded-lg border border-green-200 shadow-sm">
+                    <span className="text-[10px] font-bold text-green-600 uppercase">
+                      Com Desconto
+                    </span>
+                    <span className="font-bold text-green-700">
+                      {discountedPrice.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                {item.prazo && (
+                  <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                      Prazo
+                    </span>
+                    <span className="font-semibold text-blue-600">
+                      {item.prazo}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+  (prev, next) =>
+    prev.isSelected === next.isSelected &&
+    prev.item === next.item &&
+    prev.onToggle === next.onToggle &&
+    prev.onQuantityChange === next.onQuantityChange,
+);
 
 export function SelectionFilter() {
   const [procedimentos, setProcedimentos] = useState<Procedimento[]>([]);
@@ -195,6 +202,10 @@ export function SelectionFilter() {
   const [selectedItems, setSelectedItems] = useState<Procedimento[]>([]);
   const [manualPixDiscountPercent, setManualPixDiscountPercent] =
     useState<number>(0);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProcedimentos = async () => {
@@ -282,7 +293,7 @@ export function SelectionFilter() {
     }, 0),
   );
 
-  const updateQuantity = (item: Procedimento, newQty: number) => {
+  const updateQuantity = useCallback((item: Procedimento, newQty: number) => {
     setSelectedItems((prev) =>
       prev.map((i) =>
         i.descricao === item.descricao
@@ -290,21 +301,20 @@ export function SelectionFilter() {
           : i,
       ),
     );
-  };
+  }, []);
 
-  const toggleItem = (item: Procedimento) => {
-    const isAlreadySelected = selectedItems.some(
-      (i) => i.descricao === item.descricao,
-    );
-    if (isAlreadySelected) {
-      setSelectedItems(
-        selectedItems.filter((i) => i.descricao !== item.descricao),
+  const toggleItem = useCallback((item: Procedimento) => {
+    setSelectedItems((prev) => {
+      const isAlreadySelected = prev.some(
+        (i) => i.descricao === item.descricao,
       );
-    } else {
-      setSelectedItems([...selectedItems, { ...item, quantidade: 1 }]);
-    }
+      if (isAlreadySelected) {
+        return prev.filter((i) => i.descricao !== item.descricao);
+      }
+      return [...prev, { ...item, quantidade: 1 }];
+    });
     setQuery("");
-  };
+  }, []);
 
   // Preços calculados (PIX e Cartão mantidos sobre o valor já com desconto per-item)
   const manualDiscountAmount = roundCeil(
@@ -324,10 +334,128 @@ export function SelectionFilter() {
       : 0.85 * discountedTotalValue,
   );
 
-  const generatePdf = async (isAtendido: boolean) => {
-    const doc = new jsPDF();
+  const handleAnalyze = async () => {
+    const files = fileInputRef.current?.files;
+    if (!files || files.length === 0) {
+      alert(
+        "Por favor, selecione pelo menos uma imagem ou PDF do pedido médico.",
+      );
+      return;
+    }
 
-    // --- SVG to PNG Conversion ---
+    setAnalyzing(true);
+    setAiResult(null);
+
+    try {
+      const procedureNames = procedimentos.map((item) => item.descricao);
+
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]);
+      }
+      formData.append("procedures", JSON.stringify(procedureNames));
+
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro na análise");
+
+      let parsedResponse;
+      try {
+        const cleanResult = json.result
+          .replace(/```json/g, "")
+          .replace(/```/g, "")
+          .trim();
+        parsedResponse = JSON.parse(cleanResult);
+      } catch (e) {
+        console.error("Failed to parse AI JSON:", e);
+        parsedResponse = { raw: json.result };
+      }
+
+      if (parsedResponse.exams && Array.isArray(parsedResponse.exams)) {
+        const matchedExams: any[] = [];
+        const notFoundExams: string[] = [];
+        const newMatched: Procedimento[] = [];
+        let totalAiPrice = 0;
+
+        const normStr = (s: string) =>
+          s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+        parsedResponse.exams.forEach((examObj: any) => {
+          const examName = typeof examObj === "string" ? examObj : examObj.name;
+          const matchedName =
+            typeof examObj === "object" ? examObj.matched : null;
+
+          let found = matchedName
+            ? procedimentos.find(
+                (item) => normStr(item.descricao) === normStr(matchedName),
+              )
+            : undefined;
+
+          if (!found) {
+            const normExam = normStr(examName);
+            found = procedimentos.find((item) => {
+              const rowDesc = normStr(item.descricao);
+              if (rowDesc === normExam) return true;
+              const examWords = normExam
+                .split(/\s+/)
+                .filter((w) => w.length > 2);
+              return (
+                examWords.length > 0 &&
+                examWords.every((w) => rowDesc.includes(w))
+              );
+            });
+          }
+
+          if (found) {
+            newMatched.push(found);
+            totalAiPrice += getDiscountedPrice(found.preco);
+            matchedExams.push({
+              name: found.descricao,
+              originalName: examName,
+              price: getDiscountedPrice(found.preco),
+              found: true,
+            });
+          } else {
+            notFoundExams.push(examName);
+          }
+        });
+
+        if (newMatched.length > 0) {
+          setSelectedItems((prev) => {
+            const existingDescs = new Set(prev.map((i) => i.descricao));
+            return [
+              ...prev,
+              ...newMatched
+                .filter((m) => !existingDescs.has(m.descricao))
+                .map((m) => ({ ...m, quantidade: 1 })),
+            ];
+          });
+          alert(
+            `${newMatched.length} exames encontrados e selecionados na tabela.`,
+          );
+        }
+
+        setAiResult({
+          exams: matchedExams,
+          notFound: notFoundExams,
+          totalPrice: totalAiPrice,
+        });
+      } else {
+        setAiResult(parsedResponse);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao analisar: " + err.message);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const loadLogoPng = async (): Promise<string | null> => {
     try {
       const response = await fetch("/logo-pdf.svg");
       if (response.ok) {
@@ -339,13 +467,20 @@ export function SelectionFilter() {
           canvas.height = 796;
           const v = Canvg.fromString(ctx, svgString);
           await v.render();
-          const pngDataUrl = canvas.toDataURL("image/png");
-          doc.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
+          return canvas.toDataURL("image/png");
         }
       }
     } catch (error) {
       console.error("Error loading logo PDF:", error);
     }
+    return null;
+  };
+
+  const generateClientPdf = async (isAtendido: boolean) => {
+    const doc = new jsPDF();
+
+    const pngDataUrl = await loadLogoPng();
+    if (pngDataUrl) doc.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
 
     // Header Text
     doc.setFontSize(12);
@@ -405,6 +540,93 @@ export function SelectionFilter() {
     );
   };
 
+  const generateInternalPdf = async () => {
+    if (selectedItems.length === 0) {
+      alert("Selecione pelo menos um item para gerar o PDF.");
+      return;
+    }
+
+    const pngDataUrl = await loadLogoPng();
+    const doc = new jsPDF();
+    if (pngDataUrl) doc.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
+
+    doc.setFontSize(12);
+    doc.text("Laboratório Lab", 80, 15);
+    doc.text("SHLS 716 BLOCO E, CENTRO MÉDICO BRASILIA, ASA SUL", 80, 20);
+    doc.text("lab@laboratoriolab.com.br", 80, 25);
+
+    doc.setFontSize(16);
+    doc.text("INTERNO - Orçamento Álvaro", 14, 40);
+
+    const custoColumns = [
+      "Descrição",
+      "Qtd",
+      "Preço Base (R$)",
+      "Com Desc. (R$)",
+      "Total (R$)",
+    ];
+    const custoRows: (string | number)[][] = [];
+    let totalBase = 0;
+    let totalDesc = 0;
+
+    selectedItems.forEach((item) => {
+      const qty = item.quantidade || 1;
+      const base = item.preco;
+      const desc = getDiscountedPrice(item.preco);
+      totalBase += base * qty;
+      totalDesc += desc * qty;
+      custoRows.push([
+        item.descricao,
+        qty,
+        base.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+        desc.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+        (desc * qty).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+      ]);
+    });
+
+    const fmtNum = (n: number) =>
+      n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
+    autoTable(doc, {
+      head: [custoColumns],
+      body: custoRows,
+      startY: 45,
+      foot: [
+        ["Total", "", fmtNum(totalBase), fmtNum(totalDesc), fmtNum(totalDesc)],
+        ["PIX Final", "", "", "", fmtNum(finalPrecoPix)],
+        ["Cartão 2x Final", "", "", "", fmtNum(finalPrecoCartao)],
+      ],
+      footStyles: { fontStyle: "bold" },
+    });
+
+    // Marca d'água
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    if (pngDataUrl) {
+      doc.saveGraphicsState();
+      doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+      const logoW = 120;
+      const logoH = logoW * (796 / 1578);
+      doc.addImage(
+        pngDataUrl,
+        "PNG",
+        (pw - logoW) / 2,
+        (ph - logoH) / 2,
+        logoW,
+        logoH,
+      );
+      doc.restoreGraphicsState();
+    }
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({ opacity: 0.14 }));
+    doc.setFontSize(90);
+    doc.setTextColor(200, 0, 0);
+    doc.text("INTERNO", pw / 2, ph / 2, { align: "center", angle: 45 });
+    doc.restoreGraphicsState();
+
+    doc.save(`INTERNO-orcamento-alvaro-${new Date().getTime()}.pdf`);
+  };
+
   const normalize = (text: string | null | undefined) =>
     (text || "")
       .normalize("NFD")
@@ -432,9 +654,9 @@ export function SelectionFilter() {
 
   return (
     <>
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in-up">
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex-1 min-h-0 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[1fr] gap-6 animate-fade-in-up">
+        <div className="lg:col-span-7 flex flex-col gap-6 min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
@@ -442,9 +664,25 @@ export function SelectionFilter() {
                 </span>
                 Buscar Exames Álvaro
               </div>
-              <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                {procedimentos.length} itens
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  className="px-2.5 py-1 text-xs font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
+                >
+                  Analisar Pedido (IA)
+                </button>
+                <button
+                  onClick={() => setSelectedItems([])}
+                  disabled={selectedItems.length === 0}
+                  className="px-2.5 py-1 text-xs font-semibold bg-slate-200 text-slate-700 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  Limpar Seleções
+                  {selectedItems.length > 0 ? ` (${selectedItems.length})` : ""}
+                </button>
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                  {procedimentos.length} itens
+                </span>
+              </div>
             </h2>
             <div className="relative">
               <input
@@ -459,7 +697,7 @@ export function SelectionFilter() {
               </span>
             </div>
 
-            <div className="mt-4 border border-slate-100 rounded-xl overflow-hidden max-h-125 overflow-y-auto custom-scrollbar shadow-sm bg-white">
+            <div className="flex-1 min-h-0 mt-4 border border-slate-100 rounded-xl overflow-y-auto shadow-sm bg-white">
               <div className="divide-y divide-slate-100">
                 {filteredItems.map((item, index) => {
                   const selectedItem = selectedItems.find(
@@ -480,8 +718,8 @@ export function SelectionFilter() {
           </div>
         </div>
 
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          <div className="bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
+        <div className="lg:col-span-5 flex flex-col gap-6 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-6 p-2 flex items-center gap-2">
               Resumo Álvaro
             </h2>
@@ -559,7 +797,7 @@ export function SelectionFilter() {
               </div>
 
               <button
-                onClick={() => generatePdf(true)}
+                onClick={() => generateClientPdf(true)}
                 disabled={selectedItems.length === 0}
                 className="w-full mt-4 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
@@ -626,23 +864,184 @@ export function SelectionFilter() {
           </div>
         </div>
       </div>
+
+      {/* Internal PDF fixed button */}
+      <button
+        onClick={generateInternalPdf}
+        disabled={selectedItems.length === 0}
+        className="fixed top-0 right-4 z-[60] h-16 px-4 bg-red-600 text-white font-bold shadow-lg hover:bg-red-700 transition-all disabled:opacity-50 flex items-center gap-2"
+      >
+        <span>🔒</span>
+        Gerar PDF (Interno)
+      </button>
+
+      {/* AI Modal */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h2 className="text-xl font-bold text-slate-800">
+                Análise de Pedido Médico
+              </h2>
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 border border-blue-100">
+                  <p className="font-semibold mb-1">Como funciona:</p>
+                  <p>
+                    Envie uma foto do pedido médico. A IA irá identificar os
+                    exames e buscar os preços correspondentes na tabela atual.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Foto ou PDF do Pedido
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    className="block w-full text-sm text-slate-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-purple-50 file:text-purple-700
+                      hover:file:bg-purple-100"
+                  />
+                </div>
+
+                {analyzing ? (
+                  <div className="py-8 flex flex-col items-center justify-center text-slate-500">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600 mb-3"></div>
+                    <p>Analisando arquivos e consultando tabela...</p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAnalyze}
+                    className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+                  >
+                    Iniciar Análise
+                  </button>
+                )}
+
+                {aiResult && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-bold text-slate-800 mb-2">
+                      Resultado da Análise:
+                    </h3>
+
+                    {aiResult.exams ? (
+                      <div className="space-y-4">
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <h4 className="font-semibold text-slate-700 mb-2">
+                            Comparativo de Totais
+                          </h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white p-3 rounded border border-slate-200">
+                              <p className="text-xs text-slate-500 uppercase">
+                                Total IA
+                              </p>
+                              <p className="text-xl font-bold text-purple-600">
+                                {aiResult.totalPrice?.toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                })}
+                              </p>
+                            </div>
+                            <div className="bg-white p-3 rounded border border-slate-200">
+                              <p className="text-xs text-slate-500 uppercase">
+                                Total Selecionado (c/ descontos)
+                              </p>
+                              <p className="text-xl font-bold text-blue-600">
+                                {discountedTotalValue.toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          {Math.abs(
+                            (aiResult.totalPrice || 0) - discountedTotalValue,
+                          ) > 0.01 && (
+                            <p className="text-xs text-orange-600 mt-2">
+                              ⚠ Divergência de valores encontrada. Verifique se
+                              todos os itens foram selecionados corretamente.
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="font-semibold text-slate-700 mb-2">
+                            Exames Identificados ({aiResult.exams.length})
+                          </h4>
+                          <ul className="space-y-2 max-h-60 overflow-y-auto">
+                            {aiResult.exams.map((exam: any, idx: number) => (
+                              <li
+                                key={idx}
+                                className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100 text-sm"
+                              >
+                                <span className="font-medium text-green-900">
+                                  {exam.name}
+                                </span>
+                                <span className="text-green-700">
+                                  {exam.price?.toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  })}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {aiResult.notFound && aiResult.notFound.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-red-700 mb-2">
+                              Não Encontrados ({aiResult.notFound.length})
+                            </h4>
+                            <ul className="space-y-1">
+                              {aiResult.notFound.map(
+                                (item: string, idx: number) => (
+                                  <li
+                                    key={idx}
+                                    className="bg-red-50 text-red-800 px-2 py-1 rounded text-sm border border-red-100"
+                                  >
+                                    {item}
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap font-mono text-sm text-slate-800 shadow-inner max-h-100 overflow-y-auto">
+                        {aiResult.raw || JSON.stringify(aiResult, null, 2)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 export default function PardiniOrcamento() {
   return (
-    <main className="h-full bg-slate-300 py-6 px-4 sm:px-6 lg:px-8 overflow-y-auto">
-      <div className="max-w-7xl mx-auto mb-8 text-center animate-fade-in-down">
-        <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight">
-          <span className="bg-linear-to-r from-purple-900 via-purple-700 to-indigo-800 bg-clip-text text-transparent">
-            Tabela Álvaro
-          </span>
-        </h1>
-        <p className="text-slate-500 text-lg">
-          Selecione os exames Álvaro para gerar um orçamento
-        </p>
-      </div>
+    <main className="h-full bg-slate-300 py-4 px-4 sm:px-6 lg:px-8 overflow-hidden flex flex-col">
       <SelectionFilter />
     </main>
   );

@@ -1,50 +1,328 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Canvg } from "canvg";
 
-const EditableCell = ({
-  initialValue,
-  onSave,
-}: {
-  initialValue: string;
-  onSave: (val: string) => void;
-}) => {
-  const [value, setValue] = useState(initialValue);
+interface ExamItem {
+  originalIndex: number;
+  descricao: string;
+  mnemonic: string;
+  preco: number;
+  custo: number;
+  codigoTuss: string;
+  otherFields: { header: string; value: string }[];
+}
 
-  // Sync with external changes (like when data is re-fetched)
-  useEffect(() => {
-    setValue(initialValue);
-  }, [initialValue]);
+const normalize = (text: string) =>
+  text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => {
-        if (value !== initialValue) onSave(value);
-      }}
-      className="w-full px-2 py-1 bg-transparent border-none focus:ring-2 focus:ring-blue-500/30 rounded text-sm text-slate-700"
-    />
-  );
-};
+const ExamAccordionItem = memo(
+  ({
+    item,
+    isSelected,
+    onToggle,
+  }: {
+    item: ExamItem;
+    isSelected: boolean;
+    onToggle: (index: number) => void;
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+      <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
+        <div className="flex items-center p-3 transition-colors hover:bg-slate-50">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(item.originalIndex);
+            }}
+            className="cursor-pointer p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
+          >
+            <div
+              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 ${
+                isSelected
+                  ? "bg-blue-500 border-blue-500 text-white shadow-sm scale-110"
+                  : "border-slate-300 bg-white group-hover:border-blue-300"
+              }`}
+            >
+              {isSelected && (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-3.5 h-3.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </div>
+          </div>
+
+          <div
+            className="flex-1 flex items-center justify-between cursor-pointer ml-3 select-none"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span
+              className={`font-medium text-sm transition-colors ${isOpen ? "text-blue-700" : "text-slate-700"}`}
+            >
+              {item.descricao}
+            </span>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              {item.preco > 0 && (
+                <span className="text-xs font-semibold text-green-600 whitespace-nowrap">
+                  {item.preco.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </span>
+              )}
+              <div
+                className={`transition-transform duration-300 ease-out text-slate-400 p-1 rounded-full hover:bg-slate-100 ${
+                  isOpen ? "rotate-180 text-blue-500 bg-blue-50" : ""
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${
+            isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm text-slate-600 space-y-3">
+              {item.mnemonic && (
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Mnemônico
+                  </span>
+                  <p className="mt-1 text-slate-700">{item.mnemonic}</p>
+                </div>
+              )}
+              {item.codigoTuss && (
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Código TUSS
+                  </span>
+                  <p className="mt-1 text-slate-700">{item.codigoTuss}</p>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3 pt-1">
+                {item.custo > 0 && (
+                  <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-red-100 shadow-sm">
+                    <span className="text-[10px] font-bold text-red-400 uppercase">
+                      Custo
+                    </span>
+                    <span className="font-semibold text-red-600">
+                      {item.custo.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                )}
+                {item.preco > 0 && (
+                  <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-green-100 shadow-sm">
+                    <span className="text-[10px] font-bold text-green-600 uppercase">
+                      Preço de Venda
+                    </span>
+                    <span className="font-semibold text-green-700">
+                      {item.preco.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {item.otherFields.map((field) => (
+                <div key={field.header}>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {field.header}
+                  </span>
+                  <p className="mt-1 text-slate-700">{field.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.isSelected === next.isSelected && prev.item === next.item,
+);
 
 export default function GoogleCsvPage() {
   const [data, setData] = useState<string[][]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRows, setSelectedRows] = useState<number[]>([]);
-  const [shouldScroll, setShouldScroll] = useState(false);
-  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [showAiModal, setShowAiModal] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/google-sheets");
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      setData(result);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const headerRow = data[3] || [];
+
+  const descIndex = (() => {
+    let idx = headerRow.findIndex(
+      (h) => h && h.toLowerCase().includes("descrição"),
+    );
+    if (idx === -1)
+      idx = headerRow.findIndex(
+        (h) => h && h.toLowerCase().includes("descricao"),
+      );
+    return idx;
+  })();
+
+  const mnemonicIndex = descIndex > 0 ? descIndex - 1 : -1;
+
+  const priceIndex = (() => {
+    let idx = headerRow.findIndex(
+      (h) => h && h.toLowerCase().includes("preço de venda"),
+    );
+    if (idx === -1)
+      idx = headerRow.findIndex(
+        (h) => h && h.toLowerCase().includes("preco de venda"),
+      );
+    if (idx === -1)
+      idx = headerRow.findIndex((h) => h && h.toLowerCase().includes("preço"));
+    return idx;
+  })();
+
+  const costIndex = headerRow.findIndex(
+    (h) => h && h.toLowerCase().includes("custo exame"),
+  );
+
+  const tussIndex = (() => {
+    let idx = headerRow.findIndex(
+      (h) => h && h.toLowerCase().includes("código tuss"),
+    );
+    if (idx === -1)
+      idx = headerRow.findIndex(
+        (h) => h && h.toLowerCase().includes("codigo tuss"),
+      );
+    if (idx === -1)
+      idx = headerRow.findIndex((h) => h && h.toLowerCase().includes("tuss"));
+    return idx;
+  })();
+
+  const parsePrice = (str: string) =>
+    parseFloat(
+      str
+        .replace(/[^\d,.-]/g, "")
+        .replace(/\./g, "")
+        .replace(",", "."),
+    ) || 0;
+
+  const examItems: ExamItem[] = useMemo(() => {
+    const specialIndices = new Set(
+      [0, 1, descIndex, mnemonicIndex, priceIndex, costIndex, tussIndex].filter(
+        (i) => i >= 0,
+      ),
+    );
+
+    return data
+      .slice(4)
+      .map((row, i) => {
+        const otherFields = headerRow
+          .slice(2)
+          .map((header, colIdx) => {
+            const actualIdx = colIdx + 2;
+            if (specialIndices.has(actualIdx)) return null;
+            const value = (row[actualIdx] || "").trim();
+            return value
+              ? { header: header || `Coluna ${actualIdx}`, value }
+              : null;
+          })
+          .filter(Boolean) as { header: string; value: string }[];
+
+        return {
+          originalIndex: i + 4,
+          descricao: descIndex !== -1 ? (row[descIndex] || "").trim() : "",
+          mnemonic:
+            mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "",
+          preco: priceIndex !== -1 ? parsePrice(row[priceIndex] || "0") : 0,
+          custo: costIndex !== -1 ? parsePrice(row[costIndex] || "0") : 0,
+          codigoTuss: tussIndex !== -1 ? (row[tussIndex] || "").trim() : "",
+          otherFields,
+        };
+      })
+      .filter((item) => item.descricao.length > 0);
+  }, [data, descIndex, mnemonicIndex, priceIndex, costIndex, tussIndex]);
+
+  const filteredItems = useMemo(
+    () =>
+      searchTerm.trim()
+        ? examItems.filter(
+            (item) =>
+              normalize(item.descricao).includes(normalize(searchTerm)) ||
+              normalize(item.codigoTuss).includes(normalize(searchTerm)),
+          )
+        : examItems,
+    [examItems, searchTerm],
+  );
+
+  const selectedItems = useMemo(
+    () => examItems.filter((item) => selectedRows.has(item.originalIndex)),
+    [examItems, selectedRows],
+  );
+
+  const totalCusto = selectedItems.reduce((sum, item) => sum + item.custo, 0);
+  const totalPreco = selectedItems.reduce((sum, item) => sum + item.preco, 0);
+  const discountAmount =
+    Math.ceil(totalPreco * (discountPercent / 100) * 100) / 100;
+  const finalPreco = Math.ceil((totalPreco - discountAmount) * 100) / 100;
+
+  const toggleRowSelection = useCallback((index: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      next.has(index) ? next.delete(index) : next.add(index);
+      return next;
+    });
+  }, []);
 
   const handleAnalyze = async () => {
     const files = fileInputRef.current?.files;
@@ -59,27 +337,9 @@ export default function GoogleCsvPage() {
     setAiResult(null);
 
     try {
-      const headerRow = data[3] || [];
-      let descIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("descrição"),
+      const procedureNames = examItems.map((item) =>
+        item.mnemonic ? `${item.mnemonic} - ${item.descricao}` : item.descricao,
       );
-      if (descIndex === -1)
-        descIndex = headerRow.findIndex(
-          (h) => h && h.toLowerCase().includes("descricao"),
-        );
-
-      // Define mnemonic index as the one before description, as requested
-      const mnemonicIndex = descIndex > 0 ? descIndex - 1 : -1;
-
-      const procedureNames = data
-        .slice(4)
-        .map((row) => {
-          const mnemonic =
-            mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
-          const description = (row[descIndex] || "").trim();
-          return mnemonic ? `${mnemonic} - ${description}` : description;
-        })
-        .filter((name) => name && name.length > 0);
 
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
@@ -107,124 +367,71 @@ export default function GoogleCsvPage() {
         parsedResponse = { raw: json.result };
       }
 
-      // Process matches locally using AI suggestions
       if (parsedResponse.exams && Array.isArray(parsedResponse.exams)) {
-        let priceIndex = headerRow.findIndex(
-          (h) => h && h.toLowerCase().includes("preço de venda"),
-        );
-        if (priceIndex === -1)
-          priceIndex = headerRow.findIndex(
-            (h) => h && h.toLowerCase().includes("preco de venda"),
-          );
-        if (priceIndex === -1)
-          priceIndex = headerRow.findIndex(
-            (h) => h && h.toLowerCase().includes("preço"),
-          );
-
         const matchedExams: any[] = [];
         const notFoundExams: string[] = [];
         const newSelectedRows: number[] = [];
         let totalAiPrice = 0;
 
-        if (descIndex !== -1) {
-          parsedResponse.exams.forEach((examObj: any) => {
-            const examName =
-              typeof examObj === "string" ? examObj : examObj.name;
-            const matchedName =
-              typeof examObj === "object" ? examObj.matched : null;
+        parsedResponse.exams.forEach((examObj: any) => {
+          const examName = typeof examObj === "string" ? examObj : examObj.name;
+          const matchedName =
+            typeof examObj === "object" ? examObj.matched : null;
 
-            // Find row index in raw data using the AI-matched name or fallback to string matching
-            let bestMatchIndex = -1;
+          const normStr = (s: string) =>
+            s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-            if (matchedName) {
-              const normMatch = (s: string) =>
-                s
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .toLowerCase()
-                  .trim();
-              const normalizedMatchedName = normMatch(matchedName);
+          let found = matchedName
+            ? examItems.find(
+                (item) =>
+                  normStr(
+                    item.mnemonic
+                      ? `${item.mnemonic} - ${item.descricao}`
+                      : item.descricao,
+                  ) === normStr(matchedName),
+              )
+            : undefined;
 
-              bestMatchIndex = data.slice(4).findIndex((row) => {
-                const mnemonic =
-                  mnemonicIndex !== -1 ? (row[mnemonicIndex] || "").trim() : "";
-                const description = (row[descIndex] || "").trim();
-                const combined = mnemonic
-                  ? `${mnemonic} - ${description}`
-                  : description;
-                return normMatch(combined) === normalizedMatchedName;
-              });
-            }
-
-            // Fallback to basic word inclusion if AI didn't provide a direct match or match not found
-            if (bestMatchIndex === -1) {
-              const norm = (str: string) =>
-                str
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .toLowerCase()
-                  .trim();
-              const normExam = norm(examName);
-
-              bestMatchIndex = data.slice(4).findIndex((row) => {
-                const rowMnemonic =
-                  mnemonicIndex !== -1 ? norm(row[mnemonicIndex] || "") : "";
-                const rowDesc = norm(row[descIndex] || "");
-
-                // Check for exact mnemonic match or mnemonic as a distinct word in the exam name
-                if (
-                  rowMnemonic &&
-                  (rowMnemonic === normExam ||
-                    normExam.split(/\s+/).includes(rowMnemonic))
-                )
-                  return true;
-
-                // Or check if all significant words of the exam are included in the description
-                const examWords = normExam
-                  .split(/\s+/)
-                  .filter((w) => w.length > 2);
-                return (
-                  examWords.length > 0 &&
-                  examWords.every((w) => rowDesc.includes(w))
-                );
-              });
-            }
-
-            if (bestMatchIndex !== -1) {
-              const actualIndex = bestMatchIndex + 4;
-              newSelectedRows.push(actualIndex);
-
-              let price = 0;
-              if (priceIndex !== -1) {
-                const priceStr = data[actualIndex][priceIndex] || "";
-                const priceClean = priceStr
-                  .replace(/[^\d,.-]/g, "")
-                  .replace(/\./g, "")
-                  .replace(",", ".");
-                price = parseFloat(priceClean) || 0;
-              }
-              totalAiPrice += price;
-
-              matchedExams.push({
-                name: data[actualIndex][descIndex], // Use table name
-                originalName: examName,
-                price: price,
-                found: true,
-              });
-            } else {
-              notFoundExams.push(examName);
-            }
-          });
-
-          if (newSelectedRows.length > 0) {
-            setSelectedRows((prev) => {
-              const combined = new Set([...prev, ...newSelectedRows]);
-              return Array.from(combined);
+          if (!found) {
+            const normExam = normStr(examName);
+            found = examItems.find((item) => {
+              const rowMnemonic = normStr(item.mnemonic);
+              const rowDesc = normStr(item.descricao);
+              if (
+                rowMnemonic &&
+                (rowMnemonic === normExam ||
+                  normExam.split(/\s+/).includes(rowMnemonic))
+              )
+                return true;
+              const examWords = normExam
+                .split(/\s+/)
+                .filter((w) => w.length > 2);
+              return (
+                examWords.length > 0 &&
+                examWords.every((w) => rowDesc.includes(w))
+              );
             });
-            alert(
-              `${newSelectedRows.length} exames encontrados e selecionados na tabela.`,
-            );
           }
+
+          if (found) {
+            newSelectedRows.push(found.originalIndex);
+            totalAiPrice += found.preco;
+            matchedExams.push({
+              name: found.descricao,
+              originalName: examName,
+              price: found.preco,
+              found: true,
+            });
+          } else {
+            notFoundExams.push(examName);
+          }
+        });
+
+        if (newSelectedRows.length > 0) {
+          setSelectedRows((prev) => new Set([...prev, ...newSelectedRows]));
+          alert(
+            `${newSelectedRows.length} exames encontrados e selecionados na tabela.`,
+          );
         }
 
         setAiResult({
@@ -243,202 +450,7 @@ export default function GoogleCsvPage() {
     }
   };
 
-  const getTableTotal = () => {
-    const headerRow = data[3] || [];
-    let priceIndex = headerRow.findIndex(
-      (h) => h && h.toLowerCase().includes("preço de venda"),
-    );
-    if (priceIndex === -1)
-      priceIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("preco de venda"),
-      );
-    if (priceIndex === -1)
-      priceIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("preço"),
-      );
-
-    if (priceIndex === -1) return 0;
-
-    let total = 0;
-    selectedRows.forEach((rowIndex) => {
-      const row = data[rowIndex];
-      if (!row) return;
-      const priceStr = row[priceIndex] || "";
-      const priceClean = priceStr
-        .replace(/[^\d,.-]/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".");
-      total += parseFloat(priceClean) || 0;
-    });
-    return total;
-  };
-
-  const headerRow = data[3] || [];
-
-  const hiddenColIndices = new Set(
-    headerRow
-      .slice(2)
-      .map((h, i) => (h && h.toLowerCase().includes("custo exame") ? i : -1))
-      .filter((i) => i !== -1),
-  );
-
-  const normalize = (text: string) =>
-    text
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-
-  const rawDisplayData = data.slice(4);
-  const rowsWithIndex = rawDisplayData.map((row, index) => ({
-    row,
-    originalIndex: index + 4,
-  }));
-
-  const filteredDisplayData = (() => {
-    if (!searchTerm.trim()) return rowsWithIndex;
-
-    const normalizedTerm = normalize(searchTerm);
-
-    let descIndex = headerRow.findIndex(
-      (h) => h && h.toLowerCase().includes("descrição"),
-    );
-    if (descIndex === -1)
-      descIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("descricao"),
-      );
-
-    let tussIndex = headerRow.findIndex(
-      (h) => h && h.toLowerCase().includes("código tuss"),
-    );
-    if (tussIndex === -1)
-      tussIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("codigo tuss"),
-      );
-    if (tussIndex === -1)
-      tussIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("tuss"),
-      );
-
-    return rowsWithIndex.filter(({ row }) => {
-      const descMatch =
-        descIndex !== -1
-          ? normalize(row[descIndex] || "").includes(normalizedTerm)
-          : false;
-      const tussMatch =
-        tussIndex !== -1
-          ? normalize(row[tussIndex] || "").includes(normalizedTerm)
-          : false;
-
-      if (descIndex === -1 && tussIndex === -1) {
-        return row.some((cell) => normalize(cell).includes(normalizedTerm));
-      }
-
-      return descMatch || tussMatch;
-    });
-  })();
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (shouldScroll && tableContainerRef.current) {
-      tableContainerRef.current.scrollTop =
-        tableContainerRef.current.scrollHeight;
-      setShouldScroll(false);
-    }
-  }, [data, shouldScroll]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/google-sheets");
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
-      setData(result);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCellChange = useCallback(
-    (rowIndex: number, colIndex: number, value: string) => {
-      setData((prevData) => {
-        const newData = [...prevData];
-        newData[rowIndex][colIndex + 2] = value;
-        return newData;
-      });
-    },
-    [],
-  );
-
-  const saveChanges = async (currentData?: string[][]) => {
-    const dataToSave = currentData || data;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/google-sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values: dataToSave }),
-      });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
-    } catch (err: any) {
-      alert("Erro ao salvar: " + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const addRow = async () => {
-    if (!data || data.length === 0) return;
-
-    const numCols = data[0]?.length || 7;
-    console.log("tamanho ", data.length);
-    const newRow = Array(numCols).fill("");
-
-    const newData = [...data, newRow];
-
-    setData(newData);
-    setShouldScroll(true);
-    await saveChanges(newData);
-  };
-
-  const deleteSelectedRows = async () => {
-    if (selectedRows.length === 0) return;
-    console.log(selectedRows);
-    if (
-      !confirm(
-        `Tem certeza que deseja excluir ${selectedRows.length} linha(s)?`,
-      )
-    )
-      return;
-
-    // Filter out the selected indices
-    const newData = data.filter((_, index) => !selectedRows.includes(index));
-
-    setData(newData);
-    setSelectedRows([]);
-    await saveChanges(newData);
-  };
-
-  const toggleRowSelection = (index: number) => {
-    setSelectedRows((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
-    );
-  };
-
-  const generatePdf = async () => {
-    if (selectedRows.length === 0) {
-      alert("Selecione pelo menos uma linha para gerar o PDF.");
-      return;
-    }
-
-    const doc = new jsPDF();
-
-    // --- SVG to PNG Conversion ---
+  const loadLogoPng = async (): Promise<string | null> => {
     try {
       const response = await fetch("/logo-pdf.svg");
       if (response.ok) {
@@ -450,15 +462,33 @@ export default function GoogleCsvPage() {
           canvas.height = 796;
           const v = Canvg.fromString(ctx, svgString);
           await v.render();
-          const pngDataUrl = canvas.toDataURL("image/png");
-          doc.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
+          return canvas.toDataURL("image/png");
         }
       }
-    } catch (error) {
-      console.error("Error loading logo PDF:", error);
+    } catch (err) {
+      console.error("Error loading logo PDF:", err);
+    }
+    return null;
+  };
+
+  const generateClientPdf = async () => {
+    if (selectedRows.size === 0) {
+      alert("Selecione pelo menos uma linha para gerar o PDF.");
+      return;
+    }
+    if (descIndex === -1 || priceIndex === -1) {
+      alert(
+        "Colunas 'Descrição' ou 'Preço de Venda' não encontradas. Verifique o cabeçalho da planilha.",
+      );
+      return;
     }
 
-    // Header Text
+    const pngDataUrl = await loadLogoPng();
+    const sortedRows = [...selectedRows].sort((a, b) => a - b);
+
+    const doc = new jsPDF();
+    if (pngDataUrl) doc.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
+
     doc.setFontSize(12);
     doc.text("Laboratório Lab", 80, 15);
     doc.text("SHLS 716 BLOCO E, CENTRO MÉDICO BRASILIA, ASA SUL", 80, 20);
@@ -467,79 +497,74 @@ export default function GoogleCsvPage() {
     doc.setFontSize(16);
     doc.text("Orçamento de Procedimentos", 14, 40);
 
-    const headerRow = data[3] || [];
-
-    // Find column indices
-    let descIndex = headerRow.findIndex(
-      (h) => h && h.toLowerCase().includes("descrição"),
-    );
-    if (descIndex === -1)
-      descIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("descricao"),
-      );
-
-    let priceIndex = headerRow.findIndex(
-      (h) => h && h.toLowerCase().includes("preço de venda"),
-    );
-    if (priceIndex === -1)
-      priceIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("preco de venda"),
-      );
-    if (priceIndex === -1)
-      priceIndex = headerRow.findIndex(
-        (h) => h && h.toLowerCase().includes("preço"),
-      );
-
-    if (descIndex === -1 || priceIndex === -1) {
-      alert(
-        "Colunas 'Descrição' ou 'Preço de Venda' não encontradas. Verifique o cabeçalho da planilha.",
-      );
-      return;
-    }
-
     const tableColumn = ["Nome do Exame", "Preço"];
     const tableRows: string[][] = [];
-
-    const sortedRows = [...selectedRows].sort((a, b) => a - b);
-    let totalPrice = 0;
+    let totalPricePdf = 0;
 
     sortedRows.forEach((rowIndex) => {
       const row = data[rowIndex];
       if (!row) return;
-
       const desc = row[descIndex] || "";
       const price = row[priceIndex] || "";
-
       const priceClean = price
         .replace(/[^\d,.-]/g, "")
         .replace(/\./g, "")
         .replace(",", ".");
-      const priceValue = parseFloat(priceClean) || 0;
-      totalPrice += priceValue;
-
+      totalPricePdf += parseFloat(priceClean) || 0;
       tableRows.push([desc, price]);
     });
 
-    const formattedTotal = totalPrice.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+    const discountAmountPdf = Math.ceil(totalPricePdf * (discountPercent / 100) * 100) / 100;
+    const finalPricePdf = Math.ceil((totalPricePdf - discountAmountPdf) * 100) / 100;
+
+    const footRows: string[][] = [];
+    if (discountPercent > 0) {
+      footRows.push([
+        "Subtotal",
+        totalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      ]);
+      footRows.push([
+        `Desconto (${discountPercent}%)`,
+        `- ${discountAmountPdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+      ]);
+      footRows.push([
+        "Total Final",
+        finalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      ]);
+    } else {
+      footRows.push([
+        "Total",
+        totalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      ]);
+    }
 
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      foot: [["Total", formattedTotal]],
+      foot: footRows,
       footStyles: {
-        fillColor: [41, 128, 185], // Default header blue color
+        fillColor: [41, 128, 185],
         textColor: 255,
         fontStyle: "bold",
+      },
+      didParseCell: (hookData) => {
+        if (hookData.section === "foot" && discountPercent > 0) {
+          // Highlight the final total row (last row) more prominently
+          if (hookData.row.index === 2) {
+            hookData.cell.styles.fillColor = [26, 86, 150];
+            hookData.cell.styles.fontSize = 11;
+          }
+          // Discount row in a lighter shade
+          if (hookData.row.index === 1) {
+            hookData.cell.styles.fillColor = [70, 140, 200];
+          }
+        }
       },
       startY: 45,
     });
 
     const finalY = (doc as any).lastAutoTable.finalY || 45;
     const pageWidth = doc.internal.pageSize.getWidth();
-
     doc.setFontSize(10);
     doc.text(
       `Este orçamento tem validade de 30 dias a partir da data de emissão (${new Date().toLocaleDateString("pt-BR")}), podendo sofrer alterações após esse período.`,
@@ -551,59 +576,138 @@ export default function GoogleCsvPage() {
     doc.save(`orcamento-pardini-${new Date().getTime()}.pdf`);
   };
 
+  const generateInternalPdf = async () => {
+    if (selectedRows.size === 0) {
+      alert("Selecione pelo menos uma linha para gerar o PDF.");
+      return;
+    }
+    if (descIndex === -1 || priceIndex === -1) {
+      alert(
+        "Colunas 'Descrição' ou 'Preço de Venda' não encontradas. Verifique o cabeçalho da planilha.",
+      );
+      return;
+    }
+
+    const pngDataUrl = await loadLogoPng();
+    const sortedRows = [...selectedRows].sort((a, b) => a - b);
+
+    // ─── PDF de Custo ─────────────────────────────────────────────────────────
+    const docCusto = new jsPDF();
+    if (pngDataUrl) docCusto.addImage(pngDataUrl, "PNG", 14, 10, 40, 20);
+
+    docCusto.setFontSize(12);
+    docCusto.text("Laboratório Lab", 80, 15);
+    docCusto.text("SHLS 716 BLOCO E, CENTRO MÉDICO BRASILIA, ASA SUL", 80, 20);
+    docCusto.text("lab@laboratoriolab.com.br", 80, 25);
+
+    docCusto.setFontSize(16);
+    docCusto.text("CUSTO - Orçamento Álvaro", 14, 40);
+
+    const custoColumns = [
+      "Nome do Exame",
+      "Custo (R$)",
+      "Venda (R$)",
+      "Diferença (R$)",
+    ];
+    const custoRows: string[][] = [];
+    const diffValues: number[] = [];
+    let totalCustoPdf = 0;
+    let totalVendaPdf = 0;
+    let totalDiff = 0;
+
+    const fmtNum = (n: number) =>
+      n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
+    sortedRows.forEach((rowIndex) => {
+      const row = data[rowIndex];
+      if (!row) return;
+      const desc = row[descIndex] || "";
+      const priceValue = parsePrice(row[priceIndex] || "0");
+      const costValue =
+        costIndex !== -1 ? parsePrice(row[costIndex] || "0") : 0;
+      const diff = priceValue - costValue;
+      totalCustoPdf += costValue;
+      totalVendaPdf += priceValue;
+      totalDiff += diff;
+      diffValues.push(diff);
+      custoRows.push([
+        desc,
+        fmtNum(costValue),
+        fmtNum(priceValue),
+        (diff >= 0 ? "+" : "") + fmtNum(diff),
+      ]);
+    });
+
+    autoTable(docCusto, {
+      head: [custoColumns],
+      body: custoRows,
+      foot: [
+        [
+          "Total",
+          fmtNum(totalCustoPdf),
+          fmtNum(totalVendaPdf),
+          (totalDiff >= 0 ? "+" : "") + fmtNum(totalDiff),
+        ],
+      ],
+      startY: 45,
+      footStyles: { fontStyle: "bold" },
+      didParseCell: (hookData) => {
+        if (hookData.section === "body" && hookData.column.index === 3) {
+          const diff = diffValues[hookData.row.index];
+          if (diff !== undefined && diff > 0)
+            hookData.cell.styles.textColor = [0, 150, 50];
+        }
+        if (hookData.section === "foot" && hookData.column.index === 3) {
+          hookData.cell.styles.textColor =
+            totalDiff >= 0 ? [144, 238, 144] : [255, 120, 120];
+        }
+      },
+    });
+
+    // Marca d'água
+    const pw = docCusto.internal.pageSize.getWidth();
+    const ph = docCusto.internal.pageSize.getHeight();
+    if (pngDataUrl) {
+      docCusto.saveGraphicsState();
+      docCusto.setGState(new (docCusto as any).GState({ opacity: 0.1 }));
+      const logoW = 120;
+      const logoH = logoW * (796 / 1578);
+      docCusto.addImage(
+        pngDataUrl,
+        "PNG",
+        (pw - logoW) / 2,
+        (ph - logoH) / 2,
+        logoW,
+        logoH,
+      );
+      docCusto.restoreGraphicsState();
+    }
+    docCusto.saveGraphicsState();
+    docCusto.setGState(new (docCusto as any).GState({ opacity: 0.14 }));
+    docCusto.setFontSize(90);
+    docCusto.setTextColor(200, 0, 0);
+    docCusto.text("INTERNO", pw / 2, ph / 2, { align: "center", angle: 45 });
+    docCusto.restoreGraphicsState();
+
+    docCusto.save(`CUSTO-orcamento-pardini-${new Date().getTime()}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium">Carregando dados...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 flex flex-col">
-      <div className="max-w-7xl mx-auto w-full flex flex-col h-full">
-        <div className="flex justify-between items-center mb-6 shrink-0">
-          <h1 className="text-3xl font-bold text-slate-800">
-            Pardini Atualizado (Real-time)
-          </h1>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAiModal(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-            >
-              Analisar Pedido (IA)
-            </button>
-            {selectedRows.length > 0 && (
-              <>
-                <button
-                  onClick={generatePdf}
-                  disabled={saving}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <span>📄</span>
-                  Gerar PDF ({selectedRows.length})
-                </button>
-              </>
-            )}
-            <button
-              onClick={addRow}
-              disabled={saving}
-              className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? "Salvando..." : "Adicionar Linha"}
-            </button>
-            <button
-              onClick={() => saveChanges()}
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? "Salvando..." : "Salvar Alterações"}
-            </button>
-          </div>
-        </div>
-
+    <main className="flex-1 overflow-hidden bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 flex flex-col">
+      <div className="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 shrink-0">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4 shrink-0">
             <p className="text-red-700">Erro: {error}</p>
             <p className="text-xs text-red-500 mt-1">
               Verifique se as variáveis de ambiente
@@ -613,133 +717,226 @@ export default function GoogleCsvPage() {
           </div>
         )}
 
-        <div className="mb-4">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-              🔍
-            </span>
-            <input
-              type="text"
-              placeholder="Buscar por descrição ou código TUSS..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col min-h-0 max-h-svh">
-          <div
-            ref={tableContainerRef}
-            className="overflow-auto flex-1 custom-scrollbar"
-          >
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 w-10 bg-slate-50 border-r border-slate-200">
-                    <span className="sr-only">Selecionar</span>
-                  </th>
-                  {headerRow.slice(2).map((header, i) => {
-                    if (hiddenColIndices.has(i)) return null;
-                    return (
-                      <th
-                        key={i}
-                        className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-r border-slate-200 last:border-0 bg-slate-50"
-                      >
-                        {header || `Coluna ${i + 3}`}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredDisplayData.map(({ row, originalIndex }) => {
-                  const actualIndex = originalIndex;
-                  return (
-                    <tr
-                      key={actualIndex}
-                      className={`transition-colors ${selectedRows.includes(actualIndex) ? "bg-blue-50/50" : "hover:bg-blue-50/30"}`}
-                    >
-                      <td className="px-4 py-1 text-center border-r border-slate-100">
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.includes(actualIndex)}
-                          onChange={() => toggleRowSelection(actualIndex)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </td>
-                      {row.slice(2).map((cell, colIndex) => {
-                        if (hiddenColIndices.has(colIndex)) return null;
-                        return (
-                          <td
-                            key={colIndex}
-                            className="px-2 py-1 border-r border-slate-100 last:border-0"
-                          >
-                            <EditableCell
-                              initialValue={cell}
-                              onSave={(val) =>
-                                handleCellChange(actualIndex, colIndex, val)
-                              }
-                            />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Selected Items Tags (Separate section at the bottom) */}
-        {selectedRows.length > 0 && (
-          <div className="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-              Itens Selecionados ({selectedRows.length})
-            </span>
-            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
-              {[...selectedRows]
-                .sort((a, b) => a - b)
-                .map((rowIndex) => {
-                  const row = data[rowIndex];
-                  if (!row) return null;
-
-                  const headerRow = data[3] || [];
-                  let descIdx = headerRow.findIndex(
-                    (h) => h && h.toLowerCase().includes("descrição"),
-                  );
-                  if (descIdx === -1)
-                    descIdx = headerRow.findIndex(
-                      (h) => h && h.toLowerCase().includes("descricao"),
-                    );
-
-                  const description = row[descIdx] || `Linha ${rowIndex}`;
-
-                  return (
-                    <span
-                      key={rowIndex}
-                      onClick={() => toggleRowSelection(rowIndex)}
-                      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 cursor-pointer transition-all duration-200 border border-blue-100 shadow-sm"
-                    >
-                      {description}
-                      <span className="ml-2 font-bold text-lg leading-none">
-                        ×
-                      </span>
-                    </span>
-                  );
-                })}
+        {/* Two-column layout */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[1fr] gap-6">
+          {/* LEFT: Accordion list */}
+          <div className="lg:col-span-7 flex flex-col min-h-0">
+            <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    🔍
+                  </span>
+                  Buscar Exames
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAiModal(true)}
+                    className="px-2.5 py-1 text-xs font-semibold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
+                  >
+                    Analisar Pedido (IA)
+                  </button>
+                  <button
+                    onClick={() => setSelectedRows(new Set())}
+                    disabled={selectedRows.size === 0}
+                    className="px-2.5 py-1 text-xs font-semibold bg-slate-200 text-slate-700 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Limpar Seleções
+                    {selectedRows.size > 0 ? ` (${selectedRows.size})` : ""}
+                  </button>
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                    {examItems.length} itens
+                  </span>
+                </div>
+              </h2>
+              <div className="relative mb-3">
+                <input
+                  type="text"
+                  placeholder="Nome do exame ou código TUSS..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 bg-white/70 backdrop-blur-sm text-slate-800 placeholder:text-slate-400 pl-11"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  ⚡
+                </span>
+              </div>
+              <div className="flex-1 min-h-0 border border-slate-100 rounded-xl overflow-y-auto shadow-sm bg-white custom-scrollbar">
+                <div className="divide-y divide-slate-100">
+                  {filteredItems.map((item) => (
+                    <ExamAccordionItem
+                      key={item.originalIndex}
+                      item={item}
+                      isSelected={selectedRows.has(item.originalIndex)}
+                      onToggle={toggleRowSelection}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        )}
+
+          {/* RIGHT: Summary panel */}
+          <div className="lg:col-span-5 flex flex-col min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-4 custom-scrollbar">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">
+                Resumo
+              </h2>
+
+              <div className="space-y-2">
+                {/* Total Custo */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Total Custo
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {selectedItems.length} itens selecionados
+                    </span>
+                  </div>
+                  <span className="text-xl font-bold text-slate-900">
+                    {totalCusto.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                </div>
+
+                {/* Total Preço de Venda */}
+                <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 flex justify-between items-center">
+                  <span className="text-sm font-medium text-blue-700">
+                    Total Preço de Venda
+                  </span>
+                  <span className="text-xl font-bold text-blue-700">
+                    {totalPreco.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                </div>
+
+                {/* Discount + Final Price */}
+                <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-green-700">
+                      Preço Final
+                    </span>
+                    <span className="text-xl font-bold text-green-700">
+                      {finalPreco.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-green-600 uppercase">
+                      Desconto (%)
+                    </span>
+                    <select
+                      value={discountPercent}
+                      onChange={(e) =>
+                        setDiscountPercent(Number(e.target.value))
+                      }
+                      className="w-full h-8 px-2 text-sm font-bold bg-white border border-green-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 text-green-700 cursor-pointer"
+                    >
+                      <option value="0">Sem Desconto</option>
+                      <option value="10">10%</option>
+                      <option value="20">20%</option>
+                      <option value="35">35%</option>
+                      <option value="45">45%</option>
+                    </select>
+                  </div>
+                  {discountPercent > 0 && (
+                    <span className="text-xs text-green-600">
+                      Desconto de {discountPercent}% = -
+                      {discountAmount.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  )}
+                </div>
+
+                {/* Generate PDF buttons */}
+                <button
+                  onClick={generateClientPdf}
+                  disabled={selectedRows.size === 0}
+                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <span>📄</span>
+                  Gerar PDF ({selectedRows.size})
+                </button>
+              </div>
+
+              {/* Selected items table */}
+              {selectedItems.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <h3 className="text-sm font-semibold text-slate-600 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                    Itens Selecionados ({selectedItems.length})
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-slate-500">
+                      <thead className="text-xs text-slate-400 uppercase bg-slate-50/50">
+                        <tr>
+                          <th className="px-2 py-2">Exame</th>
+                          <th className="px-2 py-2 text-right">Preço</th>
+                          <th className="px-2 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedItems.map((item) => (
+                          <tr
+                            key={item.originalIndex}
+                            className="hover:bg-slate-50/50 transition-colors"
+                          >
+                            <td className="px-2 py-2 font-medium text-slate-700 max-w-[160px] truncate">
+                              {item.descricao}
+                            </td>
+                            <td className="px-2 py-2 text-right font-semibold text-slate-700 whitespace-nowrap">
+                              {item.preco.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              <button
+                                onClick={() =>
+                                  toggleRowSelection(item.originalIndex)
+                                }
+                                className="text-slate-300 hover:text-red-500 transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Internal PDF fixed button */}
+      <button
+        onClick={generateInternalPdf}
+        disabled={selectedRows.size === 0}
+        className="fixed top-0 right-4 z-[60] h-16 px-4 bg-red-600 text-white font-bold shadow-lg hover:bg-red-700 transition-all disabled:opacity-50 flex items-center gap-2"
+      >
+        <span>🔒</span>
+        Gerar PDF (Interno)
+      </button>
+
+      {/* AI Modal */}
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-800">
                 Análise de Pedido Médico
               </h2>
               <button
@@ -774,8 +971,7 @@ export default function GoogleCsvPage() {
                       file:rounded-full file:border-0
                       file:text-sm file:font-semibold
                       file:bg-purple-50 file:text-purple-700
-                      hover:file:bg-purple-100
-                    "
+                      hover:file:bg-purple-100"
                   />
                 </div>
 
@@ -801,7 +997,6 @@ export default function GoogleCsvPage() {
 
                     {aiResult.exams ? (
                       <div className="space-y-4">
-                        {/* Comparison Card */}
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                           <h4 className="font-semibold text-slate-700 mb-2">
                             Comparativo de Totais
@@ -823,16 +1018,15 @@ export default function GoogleCsvPage() {
                                 Total Selecionado (Tabela)
                               </p>
                               <p className="text-xl font-bold text-blue-600">
-                                {getTableTotal().toLocaleString("pt-BR", {
+                                {totalPreco.toLocaleString("pt-BR", {
                                   style: "currency",
                                   currency: "BRL",
                                 })}
                               </p>
                             </div>
                           </div>
-                          {Math.abs(
-                            (aiResult.totalPrice || 0) - getTableTotal(),
-                          ) > 0.01 && (
+                          {Math.abs((aiResult.totalPrice || 0) - totalPreco) >
+                            0.01 && (
                             <p className="text-xs text-orange-600 mt-2">
                               ⚠ Divergência de valores encontrada. Verifique se
                               todos os itens foram selecionados corretamente.
@@ -840,7 +1034,6 @@ export default function GoogleCsvPage() {
                           )}
                         </div>
 
-                        {/* Exams List */}
                         <div>
                           <h4 className="font-semibold text-slate-700 mb-2">
                             Exames Identificados ({aiResult.exams.length})
@@ -865,7 +1058,6 @@ export default function GoogleCsvPage() {
                           </ul>
                         </div>
 
-                        {/* Not Found List */}
                         {aiResult.notFound && aiResult.notFound.length > 0 && (
                           <div>
                             <h4 className="font-semibold text-red-700 mb-2">
