@@ -891,7 +891,7 @@ export default function GoogleCsvPage() {
                   className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <span>📄</span>
-                  Gerar PDF ({selectedRows.size})
+                  Gerar PDF
                 </button>
               </div>
 

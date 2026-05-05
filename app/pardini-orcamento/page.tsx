@@ -802,7 +802,7 @@ export function SelectionFilter() {
                 disabled={selectedItems.length === 0}
                 className="w-full mt-4 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
-                Gerar PDF Álvaro
+                Gerar PDF
               </button>
             </div>
 
