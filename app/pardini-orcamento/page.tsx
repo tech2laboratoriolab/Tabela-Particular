@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Canvg } from "canvg";
+import { AiModal, type AiResult } from "@/components/AiModal";
 
 interface Procedimento {
   descricao: string;
@@ -204,7 +205,7 @@ export function SelectionFilter() {
     useState<number>(0);
   const [showAiModal, setShowAiModal] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -875,166 +876,16 @@ export function SelectionFilter() {
         Gerar PDF (Interno)
       </button>
 
-      {/* AI Modal */}
-      {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h2 className="text-xl font-bold text-slate-800">
-                Análise de Pedido Médico
-              </h2>
-              <button
-                onClick={() => setShowAiModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 border border-blue-100">
-                  <p className="font-semibold mb-1">Como funciona:</p>
-                  <p>
-                    Envie uma foto do pedido médico. A IA irá identificar os
-                    exames e buscar os preços correspondentes na tabela atual.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Foto ou PDF do Pedido
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    className="block w-full text-sm text-slate-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-purple-50 file:text-purple-700
-                      hover:file:bg-purple-100"
-                  />
-                </div>
-
-                {analyzing ? (
-                  <div className="py-8 flex flex-col items-center justify-center text-slate-500">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600 mb-3"></div>
-                    <p>Analisando arquivos e consultando tabela...</p>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleAnalyze}
-                    className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
-                  >
-                    Iniciar Análise
-                  </button>
-                )}
-
-                {aiResult && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">
-                      Resultado da Análise:
-                    </h3>
-
-                    {aiResult.exams ? (
-                      <div className="space-y-4">
-                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                          <h4 className="font-semibold text-slate-700 mb-2">
-                            Comparativo de Totais
-                          </h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white p-3 rounded border border-slate-200">
-                              <p className="text-xs text-slate-500 uppercase">
-                                Total IA
-                              </p>
-                              <p className="text-xl font-bold text-purple-600">
-                                {aiResult.totalPrice?.toLocaleString("pt-BR", {
-                                  style: "currency",
-                                  currency: "BRL",
-                                })}
-                              </p>
-                            </div>
-                            <div className="bg-white p-3 rounded border border-slate-200">
-                              <p className="text-xs text-slate-500 uppercase">
-                                Total Selecionado (c/ descontos)
-                              </p>
-                              <p className="text-xl font-bold text-blue-600">
-                                {discountedTotalValue.toLocaleString("pt-BR", {
-                                  style: "currency",
-                                  currency: "BRL",
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                          {Math.abs(
-                            (aiResult.totalPrice || 0) - discountedTotalValue,
-                          ) > 0.01 && (
-                            <p className="text-xs text-orange-600 mt-2">
-                              ⚠ Divergência de valores encontrada. Verifique se
-                              todos os itens foram selecionados corretamente.
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">
-                            Exames Identificados ({aiResult.exams.length})
-                          </h4>
-                          <ul className="space-y-2 max-h-60 overflow-y-auto">
-                            {aiResult.exams.map((exam: any, idx: number) => (
-                              <li
-                                key={idx}
-                                className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100 text-sm"
-                              >
-                                <span className="font-medium text-green-900">
-                                  {exam.name}
-                                </span>
-                                <span className="text-green-700">
-                                  {exam.price?.toLocaleString("pt-BR", {
-                                    style: "currency",
-                                    currency: "BRL",
-                                  })}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {aiResult.notFound && aiResult.notFound.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-red-700 mb-2">
-                              Não Encontrados ({aiResult.notFound.length})
-                            </h4>
-                            <ul className="space-y-1">
-                              {aiResult.notFound.map(
-                                (item: string, idx: number) => (
-                                  <li
-                                    key={idx}
-                                    className="bg-red-50 text-red-800 px-2 py-1 rounded text-sm border border-red-100"
-                                  >
-                                    {item}
-                                  </li>
-                                ),
-                              )}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap font-mono text-sm text-slate-800 shadow-inner max-h-100 overflow-y-auto">
-                        {aiResult.raw || JSON.stringify(aiResult, null, 2)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AiModal
+        isOpen={showAiModal}
+        onClose={() => setShowAiModal(false)}
+        fileInputRef={fileInputRef}
+        analyzing={analyzing}
+        aiResult={aiResult}
+        onAnalyze={handleAnalyze}
+        comparisonValue={discountedTotalValue}
+        comparisonLabel="Total Selecionado (c/ descontos)"
+      />
     </>
   );
 }
