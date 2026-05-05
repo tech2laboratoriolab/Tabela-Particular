@@ -40,6 +40,33 @@ export function AiModal({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
+  function syncToInput(files: File[]) {
+    if (!fileInputRef.current) return;
+    const dt = new DataTransfer();
+    files.forEach((f) => dt.items.add(f));
+    fileInputRef.current.files = dt.files;
+  }
+
+  function addFiles(incoming: File[]) {
+    setSelectedFiles((prev) => {
+      const merged = [...prev];
+      for (const f of incoming) {
+        if (!merged.some((x) => x.name === f.name && x.size === f.size))
+          merged.push(f);
+      }
+      syncToInput(merged);
+      return merged;
+    });
+  }
+
+  function removeFile(index: number) {
+    setSelectedFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      syncToInput(updated);
+      return updated;
+    });
+  }
+
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragging(true);
@@ -53,17 +80,18 @@ export function AiModal({
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    setSelectedFiles(files);
-    if (fileInputRef.current) {
-      const dt = new DataTransfer();
-      files.forEach((f) => dt.items.add(f));
-      fileInputRef.current.files = dt.files;
-    }
+    addFiles(Array.from(e.dataTransfer.files));
   }
 
   function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
-    setSelectedFiles(Array.from(e.target.files ?? []));
+    addFiles(Array.from(e.target.files ?? []));
+    e.target.value = "";
+  }
+
+  function formatSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   if (!isOpen) return null;
@@ -151,16 +179,29 @@ export function AiModal({
               </div>
 
               {selectedFiles.length > 0 && (
-                <ul className="mt-2 space-y-1">
+                <ul className="mt-3 space-y-1.5">
                   {selectedFiles.map((file, i) => (
                     <li
                       key={i}
-                      className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5"
+                      className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 group"
                     >
-                      <span className="text-purple-500">
+                      <span className="text-lg leading-none">
                         {file.type === "application/pdf" ? "📄" : "🖼️"}
                       </span>
-                      <span className="truncate">{file.name}</span>
+                      <span className="flex-1 truncate text-sm font-medium text-slate-700">
+                        {file.name}
+                      </span>
+                      <span className="text-xs text-slate-400 shrink-0">
+                        {formatSize(file.size)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                        className="ml-1 shrink-0 text-slate-300 hover:text-red-500 transition-colors"
+                        aria-label="Remover arquivo"
+                      >
+                        ✕
+                      </button>
                     </li>
                   ))}
                 </ul>
