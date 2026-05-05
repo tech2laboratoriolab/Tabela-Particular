@@ -5,6 +5,29 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Canvg } from "canvg";
 
+interface AiExam {
+  name: string;
+  originalName: string;
+  price: number;
+  found: boolean;
+}
+
+interface AiResult {
+  exams?: AiExam[];
+  notFound?: string[];
+  totalPrice?: number;
+  raw?: string;
+}
+
+interface ExamResponse {
+  name: string;
+  matched?: string;
+}
+
+type GStateCtor = new (opts: { opacity: number }) => Parameters<
+  typeof jsPDF.prototype.setGState
+>[0];
+
 interface ExamItem {
   originalIndex: number;
   descricao: string;
@@ -19,7 +42,7 @@ const normalize = (text: string) =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const ExamAccordionItem = memo(
-  ({
+  function ExamAccordionItem({
     item,
     isSelected,
     onToggle,
@@ -27,7 +50,7 @@ const ExamAccordionItem = memo(
     item: ExamItem;
     isSelected: boolean;
     onToggle: (index: number) => void;
-  }) => {
+  }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -182,7 +205,7 @@ export default function GoogleCsvPage() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [showAiModal, setShowAiModal] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,14 +220,14 @@ export default function GoogleCsvPage() {
       const result = await res.json();
       if (result.error) throw new Error(result.error);
       setData(result);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const headerRow = data[3] || [];
+  const headerRow = useMemo(() => data[3] || [], [data]);
 
   const descIndex = (() => {
     let idx = headerRow.findIndex(
@@ -291,7 +314,7 @@ export default function GoogleCsvPage() {
         };
       })
       .filter((item) => item.descricao.length > 0);
-  }, [data, descIndex, mnemonicIndex, priceIndex, costIndex, tussIndex]);
+  }, [data, headerRow, descIndex, mnemonicIndex, priceIndex, costIndex, tussIndex]);
 
   const filteredItems = useMemo(
     () =>
@@ -319,7 +342,11 @@ export default function GoogleCsvPage() {
   const toggleRowSelection = useCallback((index: number) => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   }, []);
@@ -368,12 +395,12 @@ export default function GoogleCsvPage() {
       }
 
       if (parsedResponse.exams && Array.isArray(parsedResponse.exams)) {
-        const matchedExams: any[] = [];
+        const matchedExams: AiExam[] = [];
         const notFoundExams: string[] = [];
         const newSelectedRows: number[] = [];
         let totalAiPrice = 0;
 
-        parsedResponse.exams.forEach((examObj: any) => {
+        parsedResponse.exams.forEach((examObj: string | ExamResponse) => {
           const examName = typeof examObj === "string" ? examObj : examObj.name;
           const matchedName =
             typeof examObj === "object" ? examObj.matched : null;
@@ -442,9 +469,9 @@ export default function GoogleCsvPage() {
       } else {
         setAiResult(parsedResponse);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      alert("Erro ao analisar: " + err.message);
+      alert("Erro ao analisar: " + (err as Error).message);
     } finally {
       setAnalyzing(false);
     }
@@ -514,14 +541,19 @@ export default function GoogleCsvPage() {
       tableRows.push([desc, price]);
     });
 
-    const discountAmountPdf = Math.ceil(totalPricePdf * (discountPercent / 100) * 100) / 100;
-    const finalPricePdf = Math.ceil((totalPricePdf - discountAmountPdf) * 100) / 100;
+    const discountAmountPdf =
+      Math.ceil(totalPricePdf * (discountPercent / 100) * 100) / 100;
+    const finalPricePdf =
+      Math.ceil((totalPricePdf - discountAmountPdf) * 100) / 100;
 
     const footRows: string[][] = [];
     if (discountPercent > 0) {
       footRows.push([
         "Subtotal",
-        totalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        totalPricePdf.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
       ]);
       footRows.push([
         `Desconto (${discountPercent}%)`,
@@ -529,12 +561,18 @@ export default function GoogleCsvPage() {
       ]);
       footRows.push([
         "Total Final",
-        finalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        finalPricePdf.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
       ]);
     } else {
       footRows.push([
         "Total",
-        totalPricePdf.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        totalPricePdf.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
       ]);
     }
 
@@ -563,7 +601,9 @@ export default function GoogleCsvPage() {
       startY: 45,
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY || 45;
+    const finalY =
+      (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable
+        ?.finalY ?? 45;
     const pageWidth = doc.internal.pageSize.getWidth();
     doc.setFontSize(10);
     doc.text(
@@ -669,7 +709,7 @@ export default function GoogleCsvPage() {
     const ph = docCusto.internal.pageSize.getHeight();
     if (pngDataUrl) {
       docCusto.saveGraphicsState();
-      docCusto.setGState(new (docCusto as any).GState({ opacity: 0.1 }));
+      docCusto.setGState(new (docCusto as unknown as { GState: GStateCtor }).GState({ opacity: 0.1 }));
       const logoW = 120;
       const logoH = logoW * (796 / 1578);
       docCusto.addImage(
@@ -683,7 +723,7 @@ export default function GoogleCsvPage() {
       docCusto.restoreGraphicsState();
     }
     docCusto.saveGraphicsState();
-    docCusto.setGState(new (docCusto as any).GState({ opacity: 0.14 }));
+    docCusto.setGState(new (docCusto as unknown as { GState: GStateCtor }).GState({ opacity: 0.14 }));
     docCusto.setFontSize(90);
     docCusto.setTextColor(200, 0, 0);
     docCusto.text("INTERNO", pw / 2, ph / 2, { align: "center", angle: 45 });
@@ -1039,7 +1079,7 @@ export default function GoogleCsvPage() {
                             Exames Identificados ({aiResult.exams.length})
                           </h4>
                           <ul className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                            {aiResult.exams.map((exam: any, idx: number) => (
+                            {aiResult.exams.map((exam: AiExam, idx: number) => (
                               <li
                                 key={idx}
                                 className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100 text-sm"
