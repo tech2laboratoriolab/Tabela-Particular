@@ -8,6 +8,7 @@ import { AiModal, type AiResult } from "@/components/AiModal";
 interface Procedimento {
   descricao: string;
   preco: number;
+  custo: number;
   prazo: string;
   codigoTuss: string;
   quantidade?: number;
@@ -254,19 +255,26 @@ export function SelectionFilter() {
           (h: string) => h && h.toLowerCase().includes("prazo"),
         );
 
+        let custoIndex = headerRow.findIndex(
+          (h: string) => h && h.toLowerCase().includes("custo exame"),
+        );
+        if (custoIndex === -1)
+          custoIndex = headerRow.findIndex(
+            (h: string) => h && h.toLowerCase().includes("custo"),
+          );
+
+        const parseNum = (str: string) =>
+          parseFloat(
+            str.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."),
+          ) || 0;
+
         const formattedData: Procedimento[] = data
           .slice(4)
           .map((row: string[]) => {
-            const priceStr = row[priceIndex] || "0";
-            const priceClean = priceStr
-              .replace(/[^\d,.-]/g, "")
-              .replace(/\./g, "")
-              .replace(",", ".");
-            const priceValue = parseFloat(priceClean) || 0;
-
             return {
               descricao: row[descIndex] || "Sem descrição",
-              preco: priceValue,
+              preco: parseNum(row[priceIndex] || "0"),
+              custo: custoIndex !== -1 ? parseNum(row[custoIndex] || "0") : 0,
               codigoTuss: tussIndex !== -1 ? row[tussIndex] : "",
               prazo: prazoIndex !== -1 ? row[prazoIndex] : "",
             };
@@ -559,45 +567,131 @@ export function SelectionFilter() {
     doc.setFontSize(16);
     doc.text("INTERNO - Orçamento Álvaro", 14, 40);
 
+    const fmtNum = (n: number) =>
+      n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
     const custoColumns = [
       "Descrição",
       "Qtd",
-      "Preço Base (R$)",
       "Com Desc. (R$)",
       "Total (R$)",
+      "Custo (R$)",
+      "Diferença (R$)",
     ];
-    const custoRows: (string | number)[][] = [];
-    let totalBase = 0;
-    let totalDesc = 0;
+    const custoRows: string[][] = [];
+    let totalVenda = 0;
+    let totalCusto = 0;
+    let totalDiff = 0;
+    const diffValues: number[] = [];
 
     selectedItems.forEach((item) => {
       const qty = item.quantidade || 1;
-      const base = item.preco;
       const desc = getDiscountedPrice(item.preco);
-      totalBase += base * qty;
-      totalDesc += desc * qty;
+      const totalItem = desc * qty;
+      const custoItem = (item.custo || 0) * qty;
+      const diff = totalItem - custoItem;
+      totalVenda += totalItem;
+      totalCusto += custoItem;
+      totalDiff += diff;
+      diffValues.push(diff);
       custoRows.push([
         item.descricao,
-        qty,
-        base.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
-        desc.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
-        (desc * qty).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+        String(qty),
+        fmtNum(desc),
+        fmtNum(totalItem),
+        fmtNum(custoItem),
+        (diff >= 0 ? "+" : "") + fmtNum(diff),
       ]);
     });
 
-    const fmtNum = (n: number) =>
-      n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    const itemFooter: string[][] = [
+      [
+        "Total",
+        "",
+        "",
+        fmtNum(totalVenda),
+        fmtNum(totalCusto),
+        (totalDiff >= 0 ? "+" : "") + fmtNum(totalDiff),
+      ],
+    ];
+    if (manualPixDiscountPercent > 0) {
+      itemFooter.push([
+        `Desc. Manual PIX (${manualPixDiscountPercent}%)`,
+        "",
+        "",
+        `- ${fmtNum(manualDiscountAmount)}`,
+        "",
+        "",
+      ]);
+    }
+    itemFooter.push([
+      "PIX Final (Atendido)",
+      "",
+      "",
+      fmtNum(finalPrecoPix),
+      "",
+      "",
+    ]);
+    itemFooter.push([
+      "Cartão 2x Final (Atendido)",
+      "",
+      "",
+      fmtNum(finalPrecoCartao),
+      "",
+      "",
+    ]);
 
     autoTable(doc, {
       head: [custoColumns],
       body: custoRows,
       startY: 45,
-      foot: [
-        ["Total", "", fmtNum(totalBase), fmtNum(totalDesc), fmtNum(totalDesc)],
-        ["PIX Final", "", "", "", fmtNum(finalPrecoPix)],
-        ["Cartão 2x Final", "", "", "", fmtNum(finalPrecoCartao)],
-      ],
+      foot: itemFooter,
       footStyles: { fontStyle: "bold" },
+      didParseCell: (hookData) => {
+        if (hookData.section === "body" && hookData.column.index === 5) {
+          const diff = diffValues[hookData.row.index];
+          if (diff !== undefined && diff > 0)
+            hookData.cell.styles.textColor = [0, 150, 50];
+        }
+        if (
+          hookData.section === "foot" &&
+          hookData.row.index === 0 &&
+          hookData.column.index === 5
+        ) {
+          hookData.cell.styles.textColor =
+            totalDiff >= 0 ? [144, 238, 144] : [255, 120, 120];
+        }
+      },
+    });
+
+    const firstTableFinalY =
+      (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable
+        ?.finalY ?? 45;
+    let currentY = firstTableFinalY + 10;
+
+    doc.setFontSize(12);
+    doc.text("Comparativo de Cenários", 14, currentY);
+    currentY += 4;
+
+    autoTable(doc, {
+      head: [["Cenário", "PIX", "Cartão 2x"]],
+      body: [
+        ["Atendido", fmtNum(finalPrecoPix), fmtNum(finalPrecoCartao)],
+        [
+          "Não Atendido",
+          fmtNum(precoPixNaoAtendido),
+          fmtNum(precoCartao2XNaoAtendido),
+        ],
+      ],
+      startY: currentY,
+      styles: { fontSize: 11, fontStyle: "bold" },
+      headStyles: { fillColor: [41, 128, 185] },
+      didParseCell: (hookData) => {
+        if (hookData.section === "body" && hookData.row.index === 1) {
+          hookData.cell.styles.fillColor = [255, 243, 220];
+          hookData.cell.styles.textColor = [180, 100, 0];
+        }
+      },
     });
 
     // Marca d'água
