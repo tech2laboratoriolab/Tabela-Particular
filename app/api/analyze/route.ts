@@ -1,7 +1,56 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { google } from "googleapis";
+import { Readable } from "stream";
+
+const DRIVE_FOLDER_ID = "1kmr50pNP13eJTlPQ9q4aj8oBUsebNm1e";
+
+async function fetchPromptFromDrive(): Promise<string | null> {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  if (!clientEmail || !privateKey) {
+    throw new Error(
+      "GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY is not configured.",
+    );
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey,
+    },
+    scopes: ["https://www.googleapis.com/auth/drive.readonly"],
+  });
+
+  const drive = google.drive({ version: "v3", auth });
+
+  const listResponse = await drive.files.list({
+    q: `'${DRIVE_FOLDER_ID}' in parents and name = 'prompt.txt' and trashed = false`,
+    fields: "files(id, name)",
+  });
+
+  const files = listResponse.data.files;
+  if (!files || files.length === 0) {
+    return null;
+  }
+
+  const fileId = files[0].id!;
+
+  const fileResponse = await drive.files.get(
+    { fileId, alt: "media" },
+    { responseType: "stream" },
+  );
+
+  return new Promise((resolve, reject) => {
+    let content = "";
+    (fileResponse.data as Readable).on("data", (chunk: Buffer) => {
+      content += chunk.toString();
+    });
+    (fileResponse.data as Readable).on("end", () => resolve(content));
+    (fileResponse.data as Readable).on("error", reject);
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -25,15 +74,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Read the prompt file
-    const promptPath = path.join(process.cwd(), "lib", "prompt.txt");
+    // Fetch the prompt from Google Drive
     let promptContent = "";
     try {
-      promptContent = fs.readFileSync(promptPath, "utf-8");
+      const drivePrompt = await fetchPromptFromDrive();
+      if (drivePrompt === null) {
+        return NextResponse.json(
+          {
+            error:
+              "Prompt não encontrado no Google Drive. Verifique se o arquivo 'prompt.txt' existe na pasta configurada.",
+          },
+          { status: 404 },
+        );
+      }
+      promptContent = drivePrompt;
     } catch (e) {
-      console.error("Error reading prompt file:", e);
+      console.error("Error fetching prompt from Google Drive:", e);
       return NextResponse.json(
-        { error: "Failed to read system prompt." },
+        {
+          error:
+            "Falha ao buscar o prompt no Google Drive. Verifique as credenciais e a configuração.",
+        },
         { status: 500 },
       );
     }
