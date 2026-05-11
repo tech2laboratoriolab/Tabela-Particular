@@ -17,16 +17,6 @@ export default function Navbar() {
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-2 sm:items-stretch">
               <Link
-                href="/"
-                className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
-                  pathname === "/"
-                    ? "bg-blue-500 text-white"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                }`}
-              >
-                Tabela Particular
-              </Link>
-              <Link
                 href="/pardini-orcamento"
                 className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
                   pathname === "/pardini-orcamento"
@@ -34,17 +24,7 @@ export default function Navbar() {
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
-                Orçamento Álvaro
-              </Link>
-              <Link
-                href="/pardini"
-                className={`inline-flex items-center px-4 text-sm font-medium transition-colors ${
-                  pathname === "/pardini"
-                    ? "bg-blue-500 text-white"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                }`}
-              >
-                Gerenciar Pardini
+                Orçamento Particular
               </Link>
             </div>
           </div>

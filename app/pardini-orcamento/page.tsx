@@ -265,7 +265,10 @@ export function SelectionFilter() {
 
         const parseNum = (str: string) =>
           parseFloat(
-            str.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."),
+            str
+              .replace(/[^\d,.-]/g, "")
+              .replace(/\./g, "")
+              .replace(",", "."),
           ) || 0;
 
         const formattedData: Procedimento[] = data
@@ -498,7 +501,7 @@ export function SelectionFilter() {
     doc.text("lab@laboratoriolab.com.br", 80, 25);
 
     doc.setFontSize(16);
-    doc.text("Orçamento Álvaro", 14, 40);
+    doc.text("Orçamento Particular", 14, 40);
 
     const tableColumn = ["Descrição", "Qtd", "Preço Un. (R$)", "Total (R$)"];
     const tableRows: (string | number)[][] = [];
@@ -545,7 +548,7 @@ export function SelectionFilter() {
     });
 
     doc.save(
-      `orcamento-pardini-${isAtendido ? "atendido" : "nao-atendido"}-${new Date().getTime()}.pdf`,
+      `orcamento-particular-${isAtendido ? "atendido" : "nao-atendido"}-${new Date().getTime()}.pdf`,
     );
   };
 
@@ -565,7 +568,7 @@ export function SelectionFilter() {
     doc.text("lab@laboratoriolab.com.br", 80, 25);
 
     doc.setFontSize(16);
-    doc.text("INTERNO - Orçamento Álvaro", 14, 40);
+    doc.text("INTERNO - Orçamento Particular", 14, 40);
 
     const fmtNum = (n: number) =>
       n.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
@@ -719,7 +722,7 @@ export function SelectionFilter() {
     doc.text("INTERNO", pw / 2, ph / 2, { align: "center", angle: 45 });
     doc.restoreGraphicsState();
 
-    doc.save(`INTERNO-orcamento-alvaro-${new Date().getTime()}.pdf`);
+    doc.save(`INTERNO-orcamento-particular-${new Date().getTime()}.pdf`);
   };
 
   const normalize = (text: string | null | undefined) =>
@@ -757,7 +760,7 @@ export function SelectionFilter() {
                 <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
                   🔍
                 </span>
-                Buscar Exames Álvaro
+                Buscar Exames Particular
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -816,7 +819,7 @@ export function SelectionFilter() {
         <div className="lg:col-span-5 flex flex-col gap-6 min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto bg-white opacity-90 rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-6 p-2 flex items-center gap-2">
-              Resumo Álvaro
+              Resumo Particular
             </h2>
 
             <div className="space-y-4">
