@@ -15,17 +15,6 @@ interface Procedimento {
   [key: string]: any;
 }
 
-const roundCeil = (num: number) => Math.ceil(num * 100) / 100;
-
-const getDiscountedPrice = (price: number) => {
-  let discounted;
-  if (price >= 100) discounted = price * 0.9;
-  else if (price > 80) discounted = price * 0.92;
-  else if (price > 30) discounted = price * 0.95;
-  else discounted = price;
-  return roundCeil(discounted);
-};
-
 const AccordionItem = memo(
   ({
     item,
@@ -39,8 +28,6 @@ const AccordionItem = memo(
     onQuantityChange?: (item: Procedimento, quantity: number) => void;
   }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const discountedPrice = getDiscountedPrice(item.preco);
-    const hasDiscount = discountedPrice < item.preco;
 
     return (
       <div className="border-b border-slate-100 last:border-0 bg-white opacity-80 group">
@@ -147,31 +134,15 @@ const AccordionItem = memo(
               <div className="flex flex-wrap gap-3 pt-2">
                 <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    Preço Base
+                    Preço
                   </span>
-                  <span
-                    className={`font-semibold ${hasDiscount ? "text-slate-400 line-through text-xs" : "text-green-600"}`}
-                  >
+                  <span className="font-semibold text-green-600">
                     {item.preco.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}
                   </span>
                 </div>
-
-                {hasDiscount && (
-                  <div className="flex flex-col bg-green-50 px-3 py-2 rounded-lg border border-green-200 shadow-sm">
-                    <span className="text-[10px] font-bold text-green-600 uppercase">
-                      Com Desconto
-                    </span>
-                    <span className="font-bold text-green-700">
-                      {discountedPrice.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </div>
-                )}
 
                 {item.prazo && (
                   <div className="flex flex-col bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
@@ -299,12 +270,6 @@ export function SelectionFilter() {
     return acc + (item.preco || 0) * (item.quantidade || 1);
   }, 0);
 
-  const discountedTotalValue = roundCeil(
-    selectedItems.reduce((acc, item) => {
-      return acc + getDiscountedPrice(item.preco) * (item.quantidade || 1);
-    }, 0),
-  );
-
   const updateQuantity = useCallback((item: Procedimento, newQty: number) => {
     setSelectedItems((prev) =>
       prev.map((i) =>
@@ -328,23 +293,16 @@ export function SelectionFilter() {
     setQuery("");
   }, []);
 
-  // Preços calculados (PIX e Cartão mantidos sobre o valor já com desconto per-item)
-  const manualDiscountAmount = roundCeil(
-    discountedTotalValue * (manualPixDiscountPercent / 100),
-  );
-  const finalPrecoPix = roundCeil(discountedTotalValue - manualDiscountAmount);
-  const finalPrecoCartao = discountedTotalValue;
+  // Preços calculados (apenas desconto manual aplicado sobre o total base)
+  const manualDiscountAmount =
+    baseTotalValue * (manualPixDiscountPercent / 100);
+  const finalPrecoPix = baseTotalValue - manualDiscountAmount;
+  const finalPrecoCartao = baseTotalValue;
 
-  const precoPixNaoAtendido = roundCeil(
-    discountedTotalValue > 500
-      ? 0.7 * discountedTotalValue
-      : 0.8 * discountedTotalValue,
-  );
-  const precoCartao2XNaoAtendido = roundCeil(
-    discountedTotalValue > 500
-      ? 0.75 * discountedTotalValue
-      : 0.85 * discountedTotalValue,
-  );
+  const precoPixNaoAtendido =
+    baseTotalValue > 500 ? 0.7 * baseTotalValue : 0.8 * baseTotalValue;
+  const precoCartao2XNaoAtendido =
+    baseTotalValue > 500 ? 0.75 * baseTotalValue : 0.85 * baseTotalValue;
 
   const handleAnalyze = async () => {
     const files = fileInputRef.current?.files;
@@ -424,11 +382,11 @@ export function SelectionFilter() {
 
           if (found) {
             newMatched.push(found);
-            totalAiPrice += getDiscountedPrice(found.preco);
+            totalAiPrice += found.preco;
             matchedExams.push({
               name: found.descricao,
               originalName: examName,
-              price: getDiscountedPrice(found.preco),
+              price: found.preco,
               found: true,
             });
           } else {
@@ -507,7 +465,7 @@ export function SelectionFilter() {
     const tableRows: (string | number)[][] = [];
 
     selectedItems.forEach((item) => {
-      const price = getDiscountedPrice(item.preco);
+      const price = item.preco;
       const qty = item.quantidade || 1;
 
       const itemData = [
@@ -576,7 +534,7 @@ export function SelectionFilter() {
     const custoColumns = [
       "Descrição",
       "Qtd",
-      "Com Desc. (R$)",
+      "Preço Un. (R$)",
       "Total (R$)",
       "Custo (R$)",
       "Diferença (R$)",
@@ -589,8 +547,8 @@ export function SelectionFilter() {
 
     selectedItems.forEach((item) => {
       const qty = item.quantidade || 1;
-      const desc = getDiscountedPrice(item.preco);
-      const totalItem = desc * qty;
+      const price = item.preco;
+      const totalItem = price * qty;
       const custoItem = (item.custo || 0) * qty;
       const diff = totalItem - custoItem;
       totalVenda += totalItem;
@@ -600,7 +558,7 @@ export function SelectionFilter() {
       custoRows.push([
         item.descricao,
         String(qty),
-        fmtNum(desc),
+        fmtNum(price),
         fmtNum(totalItem),
         fmtNum(custoItem),
         (diff >= 0 ? "+" : "") + fmtNum(diff),
@@ -824,20 +782,11 @@ export function SelectionFilter() {
 
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-slate-600">
-                    Total (c/ descontos)
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Total base:{" "}
-                    {baseTotalValue.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </span>
-                </div>
+                <span className="text-sm font-medium text-slate-600">
+                  Total
+                </span>
                 <span className="text-lg font-bold text-slate-800">
-                  {discountedTotalValue.toLocaleString("pt-BR", {
+                  {baseTotalValue.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
                   })}
@@ -938,7 +887,7 @@ export function SelectionFilter() {
                         </td>
                         <td className="px-2 py-3 text-right font-semibold text-slate-700">
                           {(
-                            getDiscountedPrice(item.preco) *
+                            item.preco *
                             (item.quantidade || 1)
                           ).toLocaleString("pt-BR", {
                             style: "currency",
@@ -980,8 +929,8 @@ export function SelectionFilter() {
         analyzing={analyzing}
         aiResult={aiResult}
         onAnalyze={handleAnalyze}
-        comparisonValue={discountedTotalValue}
-        comparisonLabel="Total Selecionado (c/ descontos)"
+        comparisonValue={baseTotalValue}
+        comparisonLabel="Total Selecionado"
       />
     </>
   );
